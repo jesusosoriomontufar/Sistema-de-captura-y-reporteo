@@ -2,7 +2,6 @@
  <!--* Proyecto: Sistema de Captura / TSU.-->
 <!--* Arquitectura y Desarrollo Base (v1.0): J. Jesus Osorio Montufar.-->
  <!--* Fecha de creación: 2025.-->
- <!--* Área de Origen: Gerencia de aclaraciones.-->
 <!--// ==============================-->
 
 
@@ -73,12 +72,12 @@ const REGISTROS_POR_BACKUP = 10;
 
 const CAPTURISTA_EQUIPOS = {
   "P": "PEPE",
-  "A": "AMONTERO",
-  "Z": "CELINALOPEZ",
+  "A": "AM",
+  "Z": "CELINA",
   "W": "JESUSOSORIO",
-  "S": "SUSANAHDZ",
-  "K": "EVBARBOSA",
-  "J": "JESSICAGARCIAV"
+  "S": "SU",
+  "K": "EV",
+  "J": "JESSICA"
 };
 
 
@@ -277,17 +276,17 @@ const IPS_AUTORIZADAS = [
 ];
 
 const HOSTNAMES_AUTORIZADOS = [
-  'CELINALOPEZ',
+  'CELINA',
   'JESUSOSORIO',
-  'AMELIALUNA',
-  'DAVIDESTRADA',
-  'AMONTERO',
-  'JESSICAGARCIAV',
-  'ANAMARTINEZG',
-  'SUSANAHDZ',
-  'EVBARBOSA',
-  'BCP06016',
-  'ARTUROGAONA'
+  'AMELIA',
+  'DAVID',
+  'AM',
+  'JESSICA',
+  'ANA',
+  'SU',
+  'EV',
+  'BCP',
+  'ARTURO'
 ];
 
 const dns = require('dns');
@@ -3354,5 +3353,4 @@ server.listen(PUERTO, '0.0.0.0', () => {
  <!--* Proyecto: Sistema de Captura / TSU.-->
 <!--* Arquitectura y Desarrollo Base (v1.0): J. Jesus Osorio Montufar.-->
  <!--* Fecha de creación: 2025.-->
- <!--* Área de Origen: Gerencia de aclaraciones.-->
 <!--// ==============================-->
