@@ -1,0 +1,4307 @@
+<!--// ==============================-->
+ <!--* Proyecto: Sistema de Captura / TSU.-->
+<!--* Arquitectura y Desarrollo Base (v1.0): J. Jesus Osorio Montufar.-->
+ <!--* Fecha de creación: 2025.-->
+ <!--* Área de Origen: Gerencia de aclaraciones.-->
+<!--// ==============================-->
+
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard TSU</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-principal: #000000;
+      --bg-tarjeta: #000000;
+      --bg-header: #1a1a1a;
+      --bg-agente: #2a0810;
+      --bg-tabla-hover: #1a1a1a;
+      --bg-tabla-par: #0d0d0d;
+      --bg-tabla-impar: #000000;
+      --color-texto: #ffffff;
+      --color-subtexto: #ffccd5;
+      --color-borde: #7a1a35;
+      --color-borde-tabla: #4a0e1f;
+      --bg-dropdown: #1a1a1a;
+      --bg-dropdown-hover: #2a0a15;
+    }
+
+    body.tema-claro {
+      --bg-principal: #f5f5f5;
+      --bg-tarjeta: #ffffff;
+      --bg-header: #ffffff;
+      --bg-agente: #fff0f3;
+      --bg-tabla-hover: #f0e6ea;
+      --bg-tabla-par: #fafafa;
+      --bg-tabla-impar: #ffffff;
+      --color-texto: #1a1a1a;
+      --color-subtexto: #7a1a35;
+      --color-borde: #7a1a35;
+      --color-borde-tabla: #e0c0c8;
+      --bg-dropdown: #ffffff;
+      --bg-dropdown-hover: #f5e6ea;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-principal);
+      color: var(--color-texto);
+    }
+
+    .dashboard {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 13vh 10vh 38vh 1fr;
+      grid-template-columns: 1fr 2fr;
+      gap: 6px;
+      padding: 6px;
+    }
+
+    .header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-header);
+      border-radius: 8px;
+      padding: 0 16px;
+      border: 1px solid #7a1a35;
+    }
+
+    .header h1 {
+      font-size: clamp(0.85rem, 1.5vw, 1.3rem);
+      color: #ffffff;
+      white-space: nowrap;
+    }
+
+    .estado-conexion {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: clamp(0.65rem, 1vw, 0.82rem);
+      color: #ffffff;
+    }
+
+    .indicador {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #00e676;
+      animation: pulso 1.5s infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulso {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .tarjetas {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+
+    .tarjeta {
+      background: var(--bg-tarjeta);
+      border-radius: 8px;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #7a1a35;
+      border-top: 3px solid #7a1a35;
+    }
+
+    .tarjeta.verde {
+      border-top: 3px solid #ffd54f;
+    }
+
+    .tarjeta.amber {
+      border-top: 3px solid #ffb74d;
+    }
+
+    .tarjeta.coral {
+      border-top: 3px solid #f9a8b8;
+    }
+
+    .tarjeta .numero {
+      font-size: clamp(1.8rem, 3.5vw, 3rem);
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    .tarjeta .etiqueta {
+      font-size: clamp(0.55rem, 0.8vw, 0.75rem);
+      color: #ffccd5;
+      margin-top: 5px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .tarjeta.verde .numero { color: #ffd54f; }
+    .tarjeta.amber .numero { color: #ffb74d; }
+    .tarjeta.coral .numero { color: #f9a8b8; }
+
+    .seccion-agentes {
+      background: #000000;
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid #7a1a35;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .seccion-graficas {
+      background: #000000;
+      border-radius: 8px;
+      padding: 8px 10px;
+      border: 1px solid #7a1a35;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .seccion-agentes h2,
+    .seccion-graficas h2,
+    .seccion-tabla h2 {
+      font-size: clamp(0.7rem, 1.1vw, 0.92rem);
+      color: #ffffff;
+      border-bottom: 1px solid #7a1a35;
+      padding-bottom: 5px;
+      margin-bottom: 6px;
+      flex-shrink: 0;
+    }
+
+    .agentes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 6px;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      align-content: start;
+    }
+
+    .agente-card {
+      background: var(--bg-agente);
+      border-radius: 7px;
+      padding: 8px 10px;
+      border: 1px solid #7a1a35;
+    }
+
+    .agente-card .nombre {
+      font-size: clamp(0.6rem, 0.9vw, 0.75rem);
+      color: #ffccd5;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .agente-card .capturas {
+      font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+      font-weight: 700;
+      color: #ffd54f;
+      line-height: 1;
+    }
+
+    .agente-card .monto {
+      font-size: clamp(0.55rem, 0.85vw, 0.72rem);
+      color: #ffb74d;
+      margin-top: 3px;
+    }
+
+    .agente-card .ultima {
+      font-size: clamp(0.5rem, 0.75vw, 0.65rem);
+      color: #ffccd5;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .graficas-contenedor {
+      display: flex;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .grafica-box {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+    }
+
+    #modalGraficaExpandida {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.92);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #modalGraficaExpandida.visible {
+      display: flex;
+    }
+    #canvasExpandidoWrap {
+      background: #111;
+      border: 1px solid #7a1a35;
+      border-radius: 12px;
+      padding: 20px 20px 40px 20px;
+      width: 90vw;
+      height: 85vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    body.tema-claro #canvasExpandidoWrap {
+      background: #fff;
+    }
+
+    .seccion-tabla {
+      grid-column: 1 / -1;
+      background: #000000;
+      border-radius: 8px;
+      padding: 0 10px 8px 10px;
+      border: 1px solid #7a1a35;
+      display: flex;
+      flex-direction: column;
+      overflow: auto;
+    }
+
+    .tabla-reciente {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: collapse;
+      font-size: clamp(0.6rem, 0.95vw, 0.8rem);
+    }
+
+    .tabla-reciente th {
+      background: #0a0a0a;
+      color: #ffffff;
+      padding: 4px 8px;
+      text-align: left;
+      border-bottom: 1px solid #7a1a35;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .tabla-reciente td {
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--color-borde-tabla);
+      color: var(--color-texto);
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+
+    .tabla-reciente tbody tr:nth-child(even) {
+      background: var(--bg-tabla-par);
+    }
+    .tabla-reciente tbody tr:nth-child(odd) {
+      background: var(--bg-tabla-impar);
+    }
+
+    .tabla-reciente tbody tr:hover {
+      background: var(--bg-tabla-hover);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: clamp(0.55rem, 0.8vw, 0.7rem);
+      font-weight: 600;
+      background: #7a1a35;
+      color: #ffffff;
+    }
+
+    .btn-exportar {
+      background: #7a1a35;
+      color: #ffffff;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 14px;
+      font-size: clamp(0.65rem, 1vw, 0.82rem);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-exportar:hover {
+      background: #9a2040;
+    }
+    
+    .dropdown-herramientas {
+      position: relative;
+      display: inline-block;
+    }
+    .dropdown-herramientas .dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: var(--bg-dropdown);
+      border: 1px solid #7a1a35;
+      border-radius: 8px;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      padding: 10px;
+      gap: 10px;
+    }
+    .dropdown-herramientas.abierto .dropdown-menu {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .herr-seccion {
+      display: flex;
+      flex-direction: column;
+      min-width: 130px;
+      gap: 2px;
+    }
+    .herr-seccion-titulo {
+      color: #f9a8b8;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 4px 8px 6px 8px;
+      border-bottom: 1px solid #3a1a25;
+      margin-bottom: 2px;
+      white-space: nowrap;
+    }
+    .herr-seccion button {
+      display: block;
+      width: 100%;
+      padding: 6px 8px;
+      background: transparent;
+      color: #ffffff;
+      border: none;
+      border-radius: 5px;
+      text-align: left;
+      font-size: 0.78rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .herr-seccion button:hover {
+      background: var(--bg-dropdown-hover);
+    }
+    .herr-divisor {
+      width: 1px;
+      background: #3a1a25;
+      align-self: stretch;
+      margin: 0 2px;
+    }
+    body.tema-claro .dropdown-herramientas .dropdown-menu { background: #ffffff !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .herr-seccion-titulo { color: #9a2040 !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .herr-seccion button { color: #1a1a1a !important; }
+    body.tema-claro .herr-seccion button:hover { background: #f5e6ea !important; }
+    body.tema-claro .herr-divisor { background: #e0c0c8 !important; }
+      
+
+    .btn-modo {
+      background: #1a1a1a;
+      color: #ffffff;
+      border: 1px solid #7a1a35;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: clamp(0.6rem, 0.9vw, 0.78rem);
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn-modo:hover { background: #3a0a1a; }
+    .btn-modo.activo { background: #7a1a35; 
+    }
+    #graficaPrograma { cursor: pointer; }
+
+
+    /* ===== MODO CLARO ===== */
+    body.tema-claro { background: #f5f5f5 !important; color: #1a1a1a !important; }
+    body.tema-claro .header { background: #ffffff !important; }
+    body.tema-claro .header h1 { color: #1a1a1a !important; }
+    body.tema-claro .estado-conexion { color: #7a1a35 !important; }
+    body.tema-claro #fechaActualHeader { color: #7a1a35 !important; }
+    body.tema-claro #estadoConexion { color: #7a1a35 !important; }
+    body.tema-claro #btnTema { color: #7a1a35 !important; }
+    body.tema-claro .btn-modo { background: #ffffff !important; color: #1a1a1a !important; border-color: #7a1a35 !important; }
+    body.tema-claro .btn-modo.activo { background: #7a1a35 !important; color: #ffffff !important; }
+    body.tema-claro .btn-exportar { background: #7a1a35 !important; }
+    body.tema-claro .tarjeta { background: #ffffff !important; }
+    body.tema-claro .tarjeta .numero { color: #1a1a1a !important; }
+    body.tema-claro .tarjeta.verde .numero { color: #b38000 !important; }
+    body.tema-claro .tarjeta.amber .numero { color: #c06800 !important; }
+    body.tema-claro .tarjeta.coral .numero { color: #a02040 !important; }
+    body.tema-claro .tarjeta .etiqueta { color: #7a1a35 !important; }
+    body.tema-claro .seccion-agentes { background: #ffffff !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .seccion-agentes h2 { color: #1a1a1a !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .seccion-graficas { background: #ffffff !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .seccion-graficas h2 { color: #1a1a1a !important; }
+    body.tema-claro .seccion-tabla { background: #ffffff !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .seccion-tabla h2 { color: #1a1a1a !important; }
+    body.tema-claro .agente-card { background: #fff0f3 !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .agente-card .nombre { color: #7a1a35 !important; }
+    body.tema-claro .agente-card .capturas { color: #b38000 !important; }
+    body.tema-claro .tabla-reciente th { background: #f0e6ea !important; color: #1a1a1a !important; border-color: #7a1a35 !important; }
+    body.tema-claro .tabla-reciente td { color: #1a1a1a !important; border-color: #e0c0c8 !important; }
+    body.tema-claro .tabla-reciente tbody tr:nth-child(even) td { background: #fafafa !important; }
+    body.tema-claro .tabla-reciente tbody tr:nth-child(odd) td { background: #ffffff !important; }
+    body.tema-claro .tabla-reciente tbody tr:hover { background: #f0e6ea !important; }
+    body.tema-claro .dashboard { background: #f5f5f5 !important; }
+    body.tema-claro #controlPaginacion { color: #1a1a1a !important; }
+    body.tema-claro #controlPaginacion button { background: #ffffff !important; color: #1a1a1a !important; border-color: #7a1a35 !important; }
+    body.tema-claro #controlPaginacion input { background: #ffffff !important; color: #1a1a1a !important; border-color: #7a1a35 !important; }
+    body.tema-claro #resultadosBusqueda { color: #7a1a35 !important; }
+    body.tema-claro #inputBusqueda { background: #ffffff !important; color: #1a1a1a !important; border-color: #7a1a35 !important; }
+    body.tema-claro #tipoBusqueda { background: #ffffff !important; color: #1a1a1a !important; border-color: #7a1a35 !important; }
+    body.tema-claro .badge { background: #7a1a35 !important; color: #ffffff !important; }
+    body.tema-claro #controlPaginacion span { color: #1a1a1a !important; }
+    body.tema-claro #controlPaginacion strong { color: #1a1a1a !important; }
+    body.tema-claro .tabla-reciente th { background: #f0e6ea !important; }
+
+  </style>
+</head>
+<body>
+
+<div class="dashboard">
+
+  <!-- Header -->
+  <div class="header" style="flex-direction:column; align-items:stretch; padding:4px 16px; gap:4px;">
+  <!-- Fila 1: título y conexión -->
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <h1 id="dashboardTitulo">📊 Dashboard TSU — Hoy en tiempo real</h1>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+      <div class="estado-conexion">
+        <span id="fechaActualHeader" style="color:#ffccd5; font-size:clamp(0.6rem,0.85vw,0.75rem); margin-right:10px;"></span>
+        <span class="indicador" id="indicador"></span>
+        <span id="estadoConexion">Conectando...</span>
+      </div>
+      <button id="btnTema" onclick="toggleTema()" style="background:transparent; border:1px solid #7a1a35; border-radius:999px; color:#ffccd5; font-size:0.72rem; padding:2px 10px; cursor:pointer;">🌙 Modo claro</button>
+    </div>
+  </div>
+  <!-- Fila 2: botones -->
+  <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
+    <button id="btnModoHoy" class="btn-modo activo" onclick="cambiarModo('hoy')">🕐 Hoy</button>
+    <button id="btnModoRango" class="btn-modo" onclick="cambiarModo('rango')">📅 Rango</button>
+    <button id="btnModoHistorico" class="btn-modo" onclick="cambiarModo('historico')">📚 Histórico</button>
+    <div id="selectorRango" style="display:none; align-items:center; gap:6px;">
+      <input type="text" id="rangoCalendario" placeholder="Despliega el calendario" readonly style="padding:4px 10px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.78rem; cursor:pointer; min-width:200px;">
+      <input type="hidden" id="rangoDesde">
+      <input type="hidden" id="rangoHasta">
+      <button class="btn-modo" onclick="aplicarRango()">Aplicar</button>
+    </div>
+    <div style="width:1px; height:18px; background:#7a1a35; margin:0 4px;"></div>
+    <div class="dropdown-herramientas" id="dropdownHerramientas">
+      <button class="btn-exportar" onclick="toggleHerramientas(event)" style="background:#5a1a7a;">🛠 Herramientas ▾</button>
+      <div class="dropdown-menu">
+        <div class="herr-seccion">
+          <div class="herr-seccion-titulo">📁 Importación y exportación</div>
+          <button onclick="exportarExcelCompleto(); cerrarHerramientas()">⬇ Excel hoy</button>
+          <button onclick="abrirModalHistorico(); cerrarHerramientas()">⬇ Excel histórico</button>
+          <button onclick="abrirModalImportar(); cerrarHerramientas()">⬆ Importar histórico</button>
+        </div>
+        <div class="herr-divisor"></div>
+        <div class="herr-seccion">
+          <div class="herr-seccion-titulo">📊 Concentrado y actualización</div>
+          <button onclick="abrirModalConcentrado(); cerrarHerramientas()">📊 Concentrado</button>
+          <button onclick="abrirModalActualizarExcel(); cerrarHerramientas()">📥 Importar respuestas</button>
+          <button onclick="ejecutarValidacionCadenaFechas(); cerrarHerramientas()">🗓 Validar cadena de fechas</button>
+        </div>
+        <div class="herr-divisor"></div>
+        <div class="herr-seccion">
+          <div class="herr-seccion-titulo">⚙️ Acciones</div>
+          <button onclick="abrirModalLog(); cerrarHerramientas()">📋 Log</button>
+          <button onclick="abrirModalEditarFolios(); cerrarHerramientas()">✏️ Editar folios</button>
+          <button onclick="abrirModalEliminar(); cerrarHerramientas()">🗑 Eliminar</button>
+          <button onclick="abrirModalEliminados(); cerrarHerramientas()">♻️ Recuperar eliminados</button>
+        </div>
+        <div class="herr-divisor"></div>
+        <div class="herr-seccion">
+          <div class="herr-seccion-titulo">📈 Reportes diarios</div>
+          <button onclick="abrirModalBloqueos(); cerrarHerramientas()">🔒 Bloqueos</button>
+          <button onclick="abrirModalDCI(); cerrarHerramientas()">📋 DCI</button>
+          <button onclick="abrirModalReporte(); cerrarHerramientas()">📈 Reporte de rendimiento</button>
+        </div>
+        <div class="herr-divisor"></div>
+        <div class="herr-seccion">
+          <div class="herr-seccion-titulo">🏛 Regulatorios</div>
+          <button onclick="abrirModalR27(); cerrarHerramientas()">🏦 Generar R27</button>
+        </div>
+      </div>
+   </div>
+  </div>
+  </div>
+
+  <!-- Tarjetas -->
+  <div class="tarjetas">
+    <div class="tarjeta">
+      <div class="numero" id="totalHoy">0</div>
+      <div class="etiqueta" id="etiquetaCapturas">Capturas hoy</div>
+    </div>
+    <div class="tarjeta verde">
+      <div class="numero" id="totalHistorico">0</div>
+      <div class="etiqueta">Total histórico</div>
+    </div>
+    <div class="tarjeta amber">
+      <div class="numero" id="totalMonto">$0</div>
+      <div class="etiqueta">Monto acumulado hoy</div>
+    </div>
+    <div class="tarjeta coral">
+      <div class="numero" id="totalAgentes">0</div>
+      <div class="etiqueta">Agentes</div>
+    </div>
+  </div>
+
+
+  <!-- Agentes -->
+  <div class="seccion-agentes">
+    <h2 id="tituloAgentes">👤 Rendimiento por agente (hoy)</h2>
+    <div class="agentes-grid" id="agentesGrid">
+      <p style="color:#8a4050;font-size:0.75rem">Cargando...</p>
+    </div>
+  </div>
+
+  <!-- Gráficas -->
+  <div class="seccion-graficas">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0; border-bottom:1px solid #7a1a35; padding-bottom:5px; margin-bottom:6px;">
+      <h2 style="border-bottom:none; margin-bottom:0; padding-bottom:0;">📈 Distribución</h2>
+    </div>
+
+    <!-- Carrusel -->
+    <div style="flex:1; min-height:0; display:flex; flex-direction:column;">
+      <!-- Vista 1: 3 gráficas -->
+      <div id="vistaGrafica1" style="flex:1; min-height:0; display:flex; gap:8px;">
+        <div class="grafica-box" style="position:relative;">
+          <button onclick="expandirGrafica('graficaCanal','Por canal')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:4px;padding:1px 6px;font-size:0.7rem;cursor:pointer;z-index:2;">⛶</button>
+          <canvas id="graficaCanal"></canvas>
+        </div>
+        <div class="grafica-box" style="position:relative;">
+          <button onclick="expandirGrafica('graficaMotivo','Por motivo')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:4px;padding:1px 6px;font-size:0.7rem;cursor:pointer;z-index:2;">⛶</button>
+          <canvas id="graficaMotivo"></canvas>
+        </div>
+        <div class="grafica-box" style="position:relative;">
+          <button onclick="expandirGrafica('graficaPrograma','Por programa')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:4px;padding:1px 6px;font-size:0.7rem;cursor:pointer;z-index:2;">⛶</button>
+          <canvas id="graficaPrograma"></canvas>
+        </div>
+      </div>
+
+      <!-- Vista 2: tendencia diaria -->
+      <div id="vistaGrafica2" style="flex:1; min-height:0; display:none; position:relative;">
+        <button onclick="expandirGrafica('graficaTendencia','Tendencia diaria')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:4px;padding:1px 6px;font-size:0.7rem;cursor:pointer;z-index:2;">⛶</button>
+        <canvas id="graficaTendencia"></canvas>
+      </div>
+
+      <!-- Puntos indicadores -->
+      <div style="display:flex; justify-content:center; gap:8px; padding:4px 0; flex-shrink:0;">
+        <span id="puntoDist1" onclick="cambiarVistaGrafica(1)" style="width:8px;height:8px;border-radius:50%;background:#7a1a35;cursor:pointer;display:inline-block;"></span>
+        <span id="puntoDist2" onclick="cambiarVistaGrafica(2)" style="width:8px;height:8px;border-radius:50%;background:#333;cursor:pointer;display:inline-block;"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="seccion-tabla">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-shrink:0; padding-top:8px;">
+      <h2 style="border-bottom:none; margin-bottom:0; padding-bottom:0;">🕐 Capturas</h2>
+      <div style="display:flex; align-items:center; gap:6px; flex:1; max-width:600px;">
+        <select id="tipoBusqueda" style="padding:4px 8px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.78rem; cursor:pointer;">
+          <option value="folio">Folio</option>
+          <option value="acuerdo">Acuerdo</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="nombre">Nombre</option>
+        </select>
+        <input type="text" id="inputBusqueda" placeholder="Buscar..." 
+          style="flex:1; padding:4px 10px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.78rem; outline:none;"
+          oninput="buscarEnTablaDebounced()">
+        <button onclick="limpiarBusqueda()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.78rem; cursor:pointer;">✖ Limpiar</button>
+        <button id="btnExpandirTabla" onclick="toggleExpandirTabla()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.78rem; cursor:pointer;">⛶ Expandir</button>
+        <span id="resultadosBusqueda" style="color:#ffccd5; font-size:0.75rem; white-space:nowrap;"></span>
+      </div>
+    </div>
+    <table class="tabla-reciente">
+      <thead>
+          <tr>
+            <th>Folio</th>
+            <th>Capturista</th>
+            <th>Fecha recepción</th>
+            <th>Fecha aclaración</th>
+            <th>Nombre usuario</th>
+            <th>Sexo</th>
+            <th>Año nac.</th>
+            <th>Ref. sucursal</th>
+            <th>Sucursal</th>
+            <th>Acuerdo</th>
+            <th>Tarjeta</th>
+            <th>Canal</th>
+            <th>Motivo</th>
+            <th>Desc. motivo</th>
+            <th>Banco/Est.</th>
+            <th>Ref. cajero</th>
+            <th>Monto</th>
+            <th>Fecha mov.</th>
+            <th>Entidad</th>
+            <th>C.P.</th>
+            <th>Municipio</th>
+            <th>Localidad</th>
+            <th>Estatus</th>
+            <th>Fecha envío</th>
+            <th>Fecha estatus</th>
+            <th>Respuesta</th>
+            <th>Fecha resp. comp.</th>
+            <th>Fecha envío resp.</th>
+            <th>Fecha abono</th>
+            <th>Observación</th>
+            <th>Motivo proc.</th>
+            <th>Programa</th>
+            <th>Localidad cajero</th>
+            <th>Celular</th>
+            <th>Bloqueo</th>
+            <th>Tarjeta que transaccionó</th>
+            <th>Canal de atención</th>
+          </tr>
+        </thead>
+      <tbody id="tablaReciente"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const CAPTURISTA_NOMBRES = {
+  "P": "José Luis M.",
+  "X": "Iliana D.",
+  "Z": "Celina Sofía L.",
+  "W": "J. Jesús O.",
+  "S": "Susana H.",
+  "K": "Eileen V.",
+  "A": "Ángela M.",
+  "J": "Jessica G.",
+  "R": "Ana Karen G.",
+  "V": "Victoria",
+  "L": "Lorena",
+  "C": "C",
+  "Y": "Y"
+};
+
+let registrosTodos = [];
+let modoActual = 'hoy';
+let chartCanal = null;
+let chartMotivo = null;
+let chartPrograma = null;
+let _ultimasStats = null;
+
+const socket = io();
+
+socket.on('connect', () => {
+  document.getElementById('estadoConexion').textContent = 'Conectado — tiempo real activo';
+  document.getElementById('indicador').style.background = '#00e676';
+});
+
+socket.on('disconnect', () => {
+  document.getElementById('estadoConexion').textContent = 'Desconectado — reintentando...';
+  document.getElementById('indicador').style.background = '#8a4050';
+});
+
+socket.on('nuevo_registro', (registro) => {
+  if (modoActual === 'hoy') {
+    registrosTodos.push(registro);
+    actualizarTablaReciente(registrosTodos);
+    actualizarStats('hoy');
+  }
+});
+
+socket.on('registro_actualizado', (registro) => {
+  if (modoActual === 'hoy') {
+    const idx = registrosTodos.findIndex(r => r["Folio de continuidad"] === registro["Folio de continuidad"]);
+    if (idx !== -1) registrosTodos[idx] = registro;
+    else registrosTodos.push(registro);
+    actualizarTablaReciente(registrosTodos);
+    actualizarStats('hoy');
+  }
+});
+
+socket.on('registro_eliminado', ({ folio }) => {
+  if (modoActual === 'hoy') {
+    registrosTodos = registrosTodos.filter(r => r["Folio de continuidad"] !== folio);
+    actualizarTablaReciente(registrosTodos);
+    actualizarStats('hoy');
+  }
+});
+
+socket.on('registros_vaciados', () => {
+  registrosTodos = [];
+  actualizarTablaReciente([]);
+  actualizarStats('hoy');
+});
+
+
+function abrirModalHistorico() {
+  document.getElementById('modalHistorico').style.display = 'flex';
+  document.getElementById('modalMensaje').textContent = '';
+  // Poner fecha de hoy como valor por defecto
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('fechaDesde').value = hoy;
+  document.getElementById('fechaHasta').value = hoy;
+}
+
+function cerrarModalHistorico() {
+  document.getElementById('modalHistorico').style.display = 'none';
+}
+
+async function exportarHistoricoRango() {
+  const desde = document.getElementById('fechaDesde').value;
+  const hasta = document.getElementById('fechaHasta').value;
+  const msg = document.getElementById('modalMensaje');
+
+  if (!desde || !hasta) { msg.textContent = '⚠️ Selecciona ambas fechas.'; return; }
+  if (desde > hasta) { msg.textContent = '⚠️ La fecha inicio no puede ser mayor a la fecha fin.'; return; }
+
+  msg.textContent = '⏳ Obteniendo registros del servidor...';
+
+  try {
+    const resp = await fetch(`/registros/rango?desde=${desde}&hasta=${hasta}`);
+    const data = await resp.json();
+    const filtrados = data.registros;
+
+    if (filtrados.length === 0) {
+      msg.textContent = '⚠️ No hay registros en ese rango de fechas.';
+      return;
+    }
+
+    const toExcelSerial = (val) => {
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const serialFromYMD = (y, m, d) => Math.round((Date.UTC(y, m - 1, d) - excelEpoch) / 86400000);
+      if (val == null || val === "") return null;
+      if (typeof val === "number") return Math.floor(val);
+      if (val instanceof Date) return serialFromYMD(val.getFullYear(), val.getMonth() + 1, val.getDate());
+      if (typeof val === "string") {
+        let m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return serialFromYMD(parseInt(m[3],10), parseInt(m[2],10), parseInt(m[1],10));
+        m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) return serialFromYMD(parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10));
+      }
+      return null;
+    };
+
+    const headers = [
+      "Folio de continuidad", "Fecha de recepción de correo", "Fecha de aclaración sucursal",
+      "Nombre del Usuario", "Sexo", "Año de nacimiento", "Referencia de sucursal", "Sucursal",
+      "Acuerdo", "Número de tarjeta", "Canal", "Descripción del canal",
+      "Motivo de reclamación", "Descripción de motivo de reclamación", "Banco/establecimiento",
+      "Referencia del cajero/establecimientio", "Monto", "Fecha del movimiento",
+      "Entidad", "Código Postal", "Municipio", "Localidad", "Estatus",
+      "Fecha de envío a compensación", "Fecha de estatus a sucursal",
+      "RESPUESTA", "FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN",
+      "FECHA ENVÍO DE RESPUESTA A SUCURSAL", "FECHA ABONO", "OBSERVACIÓN",
+      "Motivo procedencia/improcedencia", "Nombre del programa", "LOCALIDAD CAJERO",
+      "N. CELULAR", "Bloqueo de tarjeta", "N. DE TARJETA QUE TRANSACCIONÓ", "Canal de atención"
+    ];
+    const ws = XLSX.utils.json_to_sheet(filtrados, { header: headers });
+    const dateColIdxs = headers.map((h, i) => (h.toLowerCase().includes("fecha") ? i : -1)).filter(i => i !== -1);
+
+    for (let r = 0; r < filtrados.length; r++) {
+      for (const c of dateColIdxs) {
+        const cellRef = XLSX.utils.encode_cell({ r: r + 1, c });
+        const cell = ws[cellRef];
+        if (!cell || cell.v == null || cell.v === "") continue;
+        const serial = toExcelSerial(cell.v);
+        if (serial != null) { cell.v = serial; cell.t = "n"; cell.z = "dd/mm/yyyy"; }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Histórico");
+    XLSX.writeFile(wb, `TSU_historico_${desde}_${hasta}.xlsx`);
+
+    msg.textContent = `✅ ${filtrados.length.toLocaleString()} registros exportados.`;
+    setTimeout(() => cerrarModalHistorico(), 2000);
+
+  } catch(e) {
+    msg.textContent = '❌ Error al obtener registros: ' + e.message;
+  }
+}
+
+
+
+async function exportarTodoElHistorico() {
+  const msg = document.getElementById('modalMensaje');
+  msg.textContent = '⏳ Obteniendo todos los registros del servidor...';
+
+  try {
+    const resp = await fetch('/registros/rango');
+    const data = await resp.json();
+    const filtrados = data.registros;
+
+    if (filtrados.length === 0) {
+      msg.textContent = '⚠️ No hay registros en la base de datos.';
+      return;
+    }
+
+    const toExcelSerial = (val) => {
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const serialFromYMD = (y, m, d) => Math.round((Date.UTC(y, m - 1, d) - excelEpoch) / 86400000);
+      if (val == null || val === "") return null;
+      if (typeof val === "number") return Math.floor(val);
+      if (val instanceof Date) return serialFromYMD(val.getFullYear(), val.getMonth() + 1, val.getDate());
+      if (typeof val === "string") {
+        let m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return serialFromYMD(parseInt(m[3],10), parseInt(m[2],10), parseInt(m[1],10));
+        m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) return serialFromYMD(parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10));
+      }
+      return null;
+    };
+
+    msg.textContent = `⏳ Generando Excel con ${filtrados.length.toLocaleString()} registros...`;
+
+    const headers = [
+      "Folio de continuidad", "Fecha de recepción de correo", "Fecha de aclaración sucursal",
+      "Nombre del Usuario", "Sexo", "Año de nacimiento", "Referencia de sucursal", "Sucursal",
+      "Acuerdo", "Número de tarjeta", "Canal", "Descripción del canal",
+      "Motivo de reclamación", "Descripción de motivo de reclamación", "Banco/establecimiento",
+      "Referencia del cajero/establecimientio", "Monto", "Fecha del movimiento",
+      "Entidad", "Código Postal", "Municipio", "Localidad", "Estatus",
+      "Fecha de envío a compensación", "Fecha de estatus a sucursal",
+      "RESPUESTA", "FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN",
+      "FECHA ENVÍO DE RESPUESTA A SUCURSAL", "FECHA ABONO", "OBSERVACIÓN",
+      "Motivo procedencia/improcedencia", "Nombre del programa", "LOCALIDAD CAJERO",
+      "N. CELULAR", "Bloqueo de tarjeta", "N. DE TARJETA QUE TRANSACCIONÓ", "Canal de atención"
+    ];
+    const ws = XLSX.utils.json_to_sheet(filtrados, { header: headers });
+    const dateColIdxs = headers.map((h, i) => (h.toLowerCase().includes("fecha") ? i : -1)).filter(i => i !== -1);
+
+    for (let r = 0; r < filtrados.length; r++) {
+      for (const c of dateColIdxs) {
+        const cellRef = XLSX.utils.encode_cell({ r: r + 1, c });
+        const cell = ws[cellRef];
+        if (!cell || cell.v == null || cell.v === "") continue;
+        const serial = toExcelSerial(cell.v);
+        if (serial != null) { cell.v = serial; cell.t = "n"; cell.z = "dd/mm/yyyy"; }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Histórico completo");
+    XLSX.writeFile(wb, `TSU_historico_completo_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+    msg.textContent = `✅ ${filtrados.length.toLocaleString()} registros exportados.`;
+    setTimeout(() => cerrarModalHistorico(), 2000);
+
+  } catch(e) {
+    msg.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+
+const ADMIN_PASSWORD_HASH_DASH = "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
+
+async function hashSHA256(str) {
+  const hash = CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex);
+  return hash;
+}
+
+
+let tabActiva = 'fechas';
+
+function cambiarTab(tab) {
+  tabActiva = tab;
+  document.getElementById('panelFechas').style.display = tab === 'fechas' ? 'flex' : 'none';
+  document.getElementById('panelFolio').style.display = tab === 'folio' ? 'flex' : 'none';
+  document.getElementById('tabFechas').style.background = tab === 'fechas' ? '#7a1a35' : '#333333';
+  document.getElementById('tabFolio').style.background = tab === 'folio' ? '#7a1a35' : '#333333';
+  document.getElementById('modalEliminarMensaje').textContent = '';
+}
+
+
+function toggleHerramientas(e) {
+  e.stopPropagation();
+  document.getElementById('dropdownHerramientas').classList.toggle('abierto');
+}
+
+function cerrarHerramientas() {
+  document.getElementById('dropdownHerramientas').classList.remove('abierto');
+}
+
+// Cerrar al hacer clic fuera
+document.addEventListener('click', () => cerrarHerramientas());
+
+function abrirModalEliminar() {
+  document.getElementById('modalEliminar').style.display = 'flex';
+  document.getElementById('modalEliminarMensaje').textContent = '';
+  document.getElementById('eliminarPassword').value = '';
+  document.getElementById('eliminarFolio').value = '';
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('eliminarDesde').value = hoy;
+  document.getElementById('eliminarHasta').value = hoy;
+  cambiarTab('fechas');
+}
+
+function cerrarModalEliminar() {
+  document.getElementById('modalEliminar').style.display = 'none';
+}
+
+async function eliminarSegunTab() {
+  if (tabActiva === 'fechas') {
+    await eliminarRango();
+  } else {
+    await eliminarPorFolio();
+  }
+}
+
+
+async function eliminarRango() {
+  const desde = document.getElementById('eliminarDesde').value;
+  const hasta = document.getElementById('eliminarHasta').value;
+  const password = document.getElementById('eliminarPassword').value;
+  const mensaje = document.getElementById('modalEliminarMensaje');
+
+  if (!desde || !hasta) { mensaje.textContent = '⚠️ Selecciona ambas fechas.'; return; }
+  if (desde > hasta) { mensaje.textContent = '⚠️ La fecha inicio no puede ser mayor a la fecha fin.'; return; }
+  if (!password) { mensaje.textContent = '⚠️ Ingresa la contraseña de administrador.'; return; }
+
+  const hash = await hashSHA256(password);
+  if (hash !== ADMIN_PASSWORD_HASH_DASH) { mensaje.textContent = '❌ Contraseña incorrecta.'; return; }
+
+  // Primero verificar cuántos hay
+  mensaje.textContent = '⏳ Verificando registros...';
+  try {
+    const respConteo = await fetch(`/registros/rango?desde=${desde}&hasta=${hasta}`);
+    const dataConteo = await respConteo.json();
+
+    if (dataConteo.total === 0) { mensaje.textContent = '⚠️ No hay registros en ese rango.'; return; }
+    if (!confirm(`¿Eliminar ${dataConteo.total.toLocaleString()} registros permanentemente?`)) return;
+
+    mensaje.textContent = '⏳ Eliminando registros...';
+
+    const resp = await fetch(`/registros/rango?desde=${desde}&hasta=${hasta}`, {
+      method: 'DELETE'
+    });
+
+    if (!resp.ok) throw new Error('Error del servidor');
+    const data = await resp.json();
+
+    if (modoActual === 'hoy') {
+      registrosTodos = registrosTodos.filter(r => {
+        const f = r["Fecha de recepción de correo"];
+        if (!f) return true;
+        const p = f.split('/');
+        if (p.length !== 3) return true;
+        const fechaStr = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        return fechaStr < desde || fechaStr > hasta;
+      });
+    }
+
+    await actualizarDashboard();
+    const totalEliminados = data.eliminados ?? data.changes ?? 0;
+    mensaje.textContent = `✅ ${totalEliminados.toLocaleString()} registros eliminados.`;
+    setTimeout(() => cerrarModalEliminar(), 2000);
+
+  } catch(e) {
+    mensaje.textContent = '❌ Error: ' + e.message;
+  }
+}
+
+
+
+async function eliminarPorFolio() {
+  const folio = document.getElementById('eliminarFolio').value.trim().toUpperCase();
+  const password = document.getElementById('eliminarPassword').value;
+  const mensaje = document.getElementById('modalEliminarMensaje');
+  if (!folio) { mensaje.textContent = '⚠️ Ingresa el folio a eliminar.'; return; }
+  if (!password) { mensaje.textContent = '⚠️ Ingresa la contraseña de administrador.'; return; }
+  const hash = await hashSHA256(password);
+  if (hash !== ADMIN_PASSWORD_HASH_DASH) { mensaje.textContent = '❌ Contraseña incorrecta.'; return; }
+
+  mensaje.textContent = '⏳ Buscando folio...';
+
+  try {
+    const resp = await fetch(`/registros/buscar?termino=${encodeURIComponent(folio)}&tipo=folio&pagina=1&limite=1`);
+    const data = await resp.json();
+    if (data.total === 0) { mensaje.textContent = `⚠️ No se encontró el folio ${folio}.`; return; }
+
+    if (!confirm(`¿Eliminar permanentemente el folio ${folio}?`)) return;
+    mensaje.textContent = '⏳ Eliminando...';
+
+    await fetch(`/registros/${encodeURIComponent(folio)}`, { method: 'DELETE' });
+
+    if (modoActual === 'hoy') {
+      registrosTodos = registrosTodos.filter(r => r["Folio de continuidad"] !== folio);
+    }
+
+    await actualizarDashboard();
+    mensaje.textContent = `✅ Folio ${folio} eliminado correctamente.`;
+    setTimeout(() => cerrarModalEliminar(), 2000);
+  } catch(e) {
+    mensaje.textContent = '❌ Error al eliminar. Verifica la conexión.';
+  }
+}
+
+
+async function eliminarTodo() {
+  const password = document.getElementById('eliminarPassword').value;
+  const mensaje = document.getElementById('modalEliminarMensaje');
+
+  if (!password) { mensaje.textContent = '⚠️ Ingresa la contraseña de administrador.'; return; }
+  const hash = await hashSHA256(password);
+  if (hash !== ADMIN_PASSWORD_HASH_DASH) { mensaje.textContent = '❌ Contraseña incorrecta.'; return; }
+
+  if (!confirm('⚠️ ATENCIÓN: Esto eliminará TODOS los registros permanentemente.\n\n¿Estás completamente seguro?')) return;
+  if (!confirm('⚠️ Segunda confirmación requerida.\n\n¿Eliminar TODOS los registros?')) return;
+
+  mensaje.textContent = '⏳ Eliminando todos los registros...';
+
+  try {
+    const resp = await fetch('/registros/todos', { method: 'DELETE' });
+    const texto = await resp.text();
+    console.log('Respuesta servidor:', texto);
+
+    let data = {};
+    try { data = JSON.parse(texto); } catch(e) { console.error('No es JSON:', texto); }
+
+    if (!resp.ok) throw new Error(data.error || 'Error del servidor');
+
+    registrosTodos = [];
+    await actualizarDashboard();
+    mensaje.textContent = `✅ ${(data.eliminados || 0).toLocaleString()} registros eliminados.`;
+    setTimeout(() => cerrarModalEliminar(), 2000);
+  } catch(e) {
+    mensaje.textContent = '❌ Error: ' + e.message;
+    console.error('Error eliminando todo:', e);
+  }
+}
+
+
+const CAPTURISTA_NOMBRES_DASH = {
+  "P": "Pepe", "A": "Ángela", "Z": "Sofia",
+  "W": "Jesús", "S": "Susana", "K": "Eileen", "J": "Jessica"
+};
+
+let logTodos = [];
+
+function pedirPasswordLog() {
+  return new Promise((resolve) => {
+    document.getElementById('modalLogPassword').style.display = 'flex';
+    document.getElementById('inputPasswordLog').value = '';
+    document.getElementById('modalLogPasswordError').textContent = '';
+    document.getElementById('inputPasswordLog').focus();
+
+    document.getElementById('btnConfirmarPasswordLog').onclick = () => {
+      const val = document.getElementById('inputPasswordLog').value;
+      document.getElementById('modalLogPassword').style.display = 'none';
+      resolve(val);
+    };
+
+    document.getElementById('btnCancelarPasswordLog').onclick = () => {
+      document.getElementById('modalLogPassword').style.display = 'none';
+      resolve(null);
+    };
+
+    document.getElementById('inputPasswordLog').onkeydown = (e) => {
+      if (e.key === 'Enter') document.getElementById('btnConfirmarPasswordLog').click();
+      if (e.key === 'Escape') document.getElementById('btnCancelarPasswordLog').click();
+    };
+  });
+}
+
+
+async function abrirModalLog() {
+  const pwd = await pedirPasswordLog();
+  if (!pwd) return;
+  const hash = await hashSHA256(pwd);
+  if (hash !== ADMIN_PASSWORD_HASH_DASH) {
+    document.getElementById('modalLogPasswordError').textContent = '❌ Contraseña incorrecta.';
+    return;
+  }
+  // Cargar log
+  try {
+    const resp = await fetch('/log');
+    logTodos = await resp.json();
+  } catch(e) {
+    alert("❌ Error al cargar el log.");
+    return;
+  }
+  // Fechas por defecto: hoy
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('logDesde').value = hoy;
+  document.getElementById('logHasta').value = hoy;
+  document.getElementById('logCapturista').value = '';
+  document.getElementById('logAccion').value = '';
+  document.getElementById('logMensaje').textContent = '';
+  document.getElementById('modalLog').style.display = 'flex';
+  filtrarLog();
+}
+
+function cerrarModalLog() {
+  document.getElementById('modalLog').style.display = 'none';
+}
+
+function filtrarLog() {
+  const desde = document.getElementById('logDesde').value;
+  const hasta = document.getElementById('logHasta').value;
+  const capturista = document.getElementById('logCapturista').value;
+  const accion = document.getElementById('logAccion').value;
+
+  let filtrados = logTodos.filter(entry => {
+    // Convertir a fecha local para evitar desfase de zona horaria
+    const fechaLocal = new Date(entry.fecha_hora);
+    const y = fechaLocal.getFullYear();
+    const m = String(fechaLocal.getMonth() + 1).padStart(2, '0');
+    const d = String(fechaLocal.getDate()).padStart(2, '0');
+    const fecha = `${y}-${m}-${d}`;
+
+    if (desde && fecha < desde) return false;
+    if (hasta && fecha > hasta) return false;
+    if (capturista && entry.capturista !== capturista) return false;
+    if (accion && entry.accion !== accion) return false;
+    return true;
+  });
+
+  renderizarLog(filtrados);
+}
+
+function limpiarFiltrosLog() {
+  document.getElementById('logDesde').value = '';
+  document.getElementById('logHasta').value = '';
+  document.getElementById('logCapturista').value = '';
+  document.getElementById('logAccion').value = '';
+  renderizarLog(logTodos);
+}
+
+function renderizarLog(entries) {
+  const tbody = document.getElementById('logTablaBody');
+  document.getElementById('logTotal').textContent = `${entries.length} registros`;
+
+  if (entries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#ffccd5;padding:20px;">No hay registros en este rango.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  entries.forEach((e, idx) => {
+    const fecha = new Date(e.fecha_hora);
+    const fechaStr = `${fecha.toLocaleDateString('es-MX')} ${fecha.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`;
+    const nombreCapturista = CAPTURISTA_NOMBRES_DASH[e.capturista] || e.capturista;
+
+    let colorAccion = '#ffffff';
+    let iconoAccion = '';
+    if (e.accion === 'CAPTURA')          { colorAccion = '#a5d6a7'; iconoAccion = '✅'; }
+    if (e.accion === 'EDICION')          { colorAccion = '#ffd54f'; iconoAccion = '✏️'; }
+    if (e.accion === 'ELIMINACION')      { colorAccion = '#ef9a9a'; iconoAccion = '🗑️'; }
+    if (e.accion === 'EDICION_DASHBOARD'){ colorAccion = '#ce93d8'; iconoAccion = '🖥️'; }
+
+    const tieneDetalle = (e.accion === 'EDICION' || e.accion === 'ELIMINACION' || e.accion === 'EDICION_DASHBOARD') && e.detalle && Object.keys(e.detalle).length > 0;
+    const detalleBtnHtml = tieneDetalle
+      ? `<span onclick="toggleDetalle('detalle_${idx}')" style="cursor:pointer; margin-left:8px; font-size:0.75rem; color:#ffccd5; user-select:none;">▶ ver cambios</span>`
+      : '';
+
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #2a2a2a';
+    tr.innerHTML = `
+      <td style="padding:8px 12px; color:#cccccc;">${fechaStr}</td>
+      <td style="padding:8px 12px; color:#ffffff;">${nombreCapturista}</td>
+      <td style="padding:8px 12px; color:${colorAccion}; font-weight:600;">${iconoAccion} ${e.accion}${detalleBtnHtml}</td>
+      <td style="padding:8px 12px; color:#ffccd5; font-family:monospace;">${e.folio}</td>
+    `;
+    tbody.appendChild(tr);
+
+    // Fila de detalle expandible
+    if (tieneDetalle) {
+      const trDetalle = document.createElement('tr');
+      trDetalle.id = `detalle_${idx}`;
+      trDetalle.style.display = 'none';
+      trDetalle.style.background = '#0a0a0a';
+
+      const cambios = typeof e.detalle === 'string' ? JSON.parse(e.detalle) : e.detalle;
+      const filasDetalle = Object.entries(cambios).map(([campo, vals]) => `
+        <tr>
+          <td style="padding:4px 12px; color:#aaaaaa; font-size:0.78rem;">${campo}</td>
+          <td style="padding:4px 12px; color:#ef9a9a; font-size:0.78rem; text-decoration:line-through;">${vals.antes || '—'}</td>
+          <td style="padding:4px 12px; color:#a5d6a7; font-size:0.78rem;">${vals.despues || '—'}</td>
+        </tr>
+      `).join('');
+
+      trDetalle.innerHTML = `
+        <td colspan="4" style="padding:8px 16px;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #333;">
+                <th style="padding:4px 12px; color:#888; text-align:left; font-weight:500;">Campo</th>
+                <th style="padding:4px 12px; color:#ef9a9a; text-align:left; font-weight:500;">Antes</th>
+                <th style="padding:4px 12px; color:#a5d6a7; text-align:left; font-weight:500;">Después</th>
+              </tr>
+            </thead>
+            <tbody>${filasDetalle}</tbody>
+          </table>
+        </td>
+      `;
+      tbody.appendChild(trDetalle);
+    }
+  });
+}
+
+function toggleDetalle(id) {
+  const tr = document.getElementById(id);
+  if (!tr) return;
+  const visible = tr.style.display !== 'none';
+  tr.style.display = visible ? 'none' : 'table-row';
+  // Cambiar el texto del botón
+  const btn = document.querySelector(`[onclick="toggleDetalle('${id}')"]`);
+  if (btn) btn.textContent = visible ? '▶ ver cambios' : '▼ ocultar';
+}
+
+function exportarLogExcel() {
+  const desde = document.getElementById('logDesde').value;
+  const hasta = document.getElementById('logHasta').value;
+  const capturista = document.getElementById('logCapturista').value;
+  const accion = document.getElementById('logAccion').value;
+
+  // Usar los mismos filtros activos
+  let filtrados = logTodos.filter(entry => {
+    const fechaLocal = new Date(entry.fecha_hora);
+    const y = fechaLocal.getFullYear();
+    const m = String(fechaLocal.getMonth() + 1).padStart(2, '0');
+    const d = String(fechaLocal.getDate()).padStart(2, '0');
+    const fecha = `${y}-${m}-${d}`;
+    if (desde && fecha < desde) return false;
+    if (hasta && fecha > hasta) return false;
+    if (capturista && entry.capturista !== capturista) return false;
+    if (accion && entry.accion !== accion) return false;
+    return true;
+  });
+
+  if (filtrados.length === 0) {
+    alert('⚠️ No hay registros para exportar.');
+    return;
+  }
+
+  // Formatear para Excel
+  const datos = filtrados.map(e => {
+    const fecha = new Date(e.fecha_hora);
+    return {
+      'Fecha y hora': `${fecha.toLocaleDateString('es-MX')} ${fecha.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', second:'2-digit'})}`,
+      'Capturista': CAPTURISTA_NOMBRES_DASH[e.capturista] || e.capturista,
+      'Acción': e.accion,
+      'Folio': e.folio
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Log de Actividad');
+  XLSX.writeFile(wb, `TSU_log_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// Actualizar log en tiempo real si está abierto
+socket.on('nuevo_log', (entry) => {
+  logTodos.unshift(entry);
+  if (document.getElementById('modalLog').style.display === 'flex') {
+    filtrarLog();
+  }
+});
+
+
+
+
+async function cargarDatos() {
+  try {
+    // Cargar solo registros del día — rápido
+    const resp = await fetch('/registros/hoy');
+    const data = await resp.json();
+    registrosTodos = data.registros;
+
+    // Cargar stats completas del servidor
+    await actualizarStats('hoy');
+    actualizarTablaReciente(registrosTodos);
+  } catch(e) {
+    console.error('Error cargando datos:', e);
+  }
+}
+
+async function actualizarStats(modo, desde = '', hasta = '') {
+  try {
+    let url = `/registros/stats?modo=${modo}`;
+    if (desde) url += `&desde=${desde}`;
+    if (hasta) url += `&hasta=${hasta}`;
+    const resp = await fetch(url);
+    const stats = await resp.json();
+
+    document.getElementById('totalHoy').textContent = stats.total.toLocaleString();
+    document.getElementById('totalHistorico').textContent = stats.totalHistorico.toLocaleString();
+    document.getElementById('totalMonto').textContent = '$' + (stats.monto || 0).toLocaleString('es-MX', {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+    
+    const etiquetaMonto = document.querySelector('.tarjeta.amber .etiqueta');
+    if (etiquetaMonto) {
+      if (modoActual === 'hoy') etiquetaMonto.textContent = 'Monto acumulado hoy';
+      else if (modoActual === 'rango') etiquetaMonto.textContent = 'Monto acumulado en rango';
+      else etiquetaMonto.textContent = 'Monto acumulado histórico';
+    }
+
+    // Agentes activos
+    await cargarCapturistasActivos();
+    const grid = document.getElementById('agentesGrid');
+    if (stats.agentes.length === 0) {
+      grid.innerHTML = '<p style="color:#8a4050;font-size:0.75rem">No hay capturas todavía.</p>';
+    } else {
+      grid.innerHTML = stats.agentes.map(a => {
+        const conectado = capturistasConectados[a.letra];
+        const estadoColor = conectado ? '#00e676' : '#8a4050';
+        const estadoTexto = conectado ? `🟢 ${conectado.ip}` : '⚫ Desconectado';
+        return `
+          <div class="agente-card">
+            <div class="nombre">${CAPTURISTA_NOMBRES[a.letra] || a.letra}</div>
+            <div class="capturas">${a.capturas.toLocaleString()}</div>
+            <div class="ultima" style="color:${estadoColor}; font-size:clamp(0.55rem,0.8vw,0.7rem); margin-top:4px;">${estadoTexto}</div>
+          </div>
+        `;
+      }).join('');
+    }
+    document.getElementById('totalAgentes').textContent = stats.agentes.length;
+
+    // Gráficas
+    actualizarGraficasConStats(stats);
+
+  } catch(e) {
+    console.error('Error cargando stats:', e);
+  }
+}
+
+function actualizarGraficasConStats(stats) {
+  _ultimasStats = stats;
+  const modoClaro = document.body.classList.contains('tema-claro');
+  const colorTexto = modoClaro ? '#333333' : '#eceff1';
+  const colorGrid = modoClaro ? '#c8a0b0' : '#4a0e1f';
+  const colores = ['#f9a8b8','#ffd54f','#80cbc4','#ef9a9a','#a5d6a7','#ce93d8','#ffb74d','#81d4fa','#ff8a65','#c5e1a5','#f48fb1','#90caf9'];
+
+  if (chartCanal) chartCanal.destroy();
+  if (chartMotivo) chartMotivo.destroy();
+  if (chartPrograma) chartPrograma.destroy();
+
+  chartCanal = new Chart(document.getElementById('graficaCanal'), {
+    type: 'doughnut',
+    data: {
+      labels: stats.canales.map(c => c.label || 'Sin canal'),
+      datasets: [{ data: stats.canales.map(c => c.valor), backgroundColor: colores, borderWidth: 0 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: colorTexto, font: { size: 10 }, boxWidth: 12 }, position: 'bottom' },
+        title: { display: true, text: 'Por canal', color: colorTexto, font: { size: 11 } }
+      }
+    }
+  });
+
+  chartMotivo = new Chart(document.getElementById('graficaMotivo'), {
+    type: 'bar',
+    data: {
+      labels: stats.motivos.map(m => m.label || 'Sin motivo'),
+      datasets: [{ data: stats.motivos.map(m => m.valor), backgroundColor: colores, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, title: { display: true, text: 'Por motivo', color: colorTexto, font: { size: 11 } } },
+      scales: {
+        x: { ticks: { color: colorTexto, font: { size: 9 }, callback: function(val) { const l = this.getLabelForValue(val); return l.length > 18 ? l.slice(0, 16) + '…' : l; } }, grid: { color: colorGrid } },
+        y: { ticks: { color: colorTexto, font: { size: 9 } }, grid: { color: colorGrid }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Top 5 programas + Otros
+  const top5 = stats.programas.slice(0, 5);
+  const otros = stats.programas.slice(5).reduce((acc, p) => acc + p.valor, 0);
+  const labelsPrograma = top5.map(p => p.label || 'Sin programa');
+  const dataPrograma = top5.map(p => p.valor);
+  if (otros > 0) { labelsPrograma.push('Otros'); dataPrograma.push(otros); }
+
+  chartPrograma = new Chart(document.getElementById('graficaPrograma'), {
+    type: 'bar',
+    data: {
+      labels: labelsPrograma,
+      datasets: [{ data: dataPrograma, backgroundColor: colores, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false }, title: { display: true, text: '📋 Por programa (Top 5 — ver todos)', color: colorTexto, font: { size: 11 } } },
+      onClick: () => abrirModalProgramas(stats.programas),
+      scales: {
+        x: { ticks: { color: colorTexto, font: { size: 9 } }, grid: { color: colorGrid }, beginAtZero: true },
+        y: { ticks: { color: colorTexto, font: { size: 9 } }, grid: { color: colorGrid } }
+      }
+    }
+  });
+}
+
+
+let _programasTodos = [];
+
+function abrirModalProgramas(programas) {
+  _programasTodos = programas || [];
+  const total = _programasTodos.reduce((acc, p) => acc + p.valor, 0);
+  const max = _programasTodos[0]?.valor || 1;
+
+  const lista = _programasTodos.map(p => {
+    const pct = total > 0 ? ((p.valor / total) * 100).toFixed(1) : 0;
+    const barWidth = Math.round((p.valor / max) * 100);
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid #1a1a1a;">
+        <div style="flex:1; font-size:0.82rem; color:#ffccd5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${p.label || 'Sin programa'}">${p.label || 'Sin programa'}</div>
+        <div style="flex:2; background:#1a1a1a; border-radius:4px; height:10px; overflow:hidden;">
+          <div style="width:${barWidth}%; height:100%; background:#f9a8b8; border-radius:4px;"></div>
+        </div>
+        <div style="width:40px; text-align:right; font-size:0.82rem; color:#ffd54f; font-weight:600;">${p.valor}</div>
+        <div style="width:44px; text-align:right; font-size:0.78rem; color:#aaaaaa;">${pct}%</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('modalProgramasLista').innerHTML = lista || '<p style="color:#8a4050;">No hay datos.</p>';
+  document.getElementById('modalProgramas').style.display = 'flex';
+}
+
+function cerrarModalProgramas() {
+  document.getElementById('modalProgramas').style.display = 'none';
+}
+
+
+async function cargarPaginaHistorico(pagina) {
+  try {
+    const resp = await fetch(`/registros/pagina?pagina=${pagina}&limite=300`);
+    const data = await resp.json();
+    registrosTodos = data.registros;
+    registrosPaginados = data.registros;
+    paginaActual = data.pagina;
+    totalRegistrosServidor = data.total;
+    totalPaginasServidor = data.totalPaginas;
+    renderizarPaginaServidor();
+  } catch(e) {
+    console.error('Error cargando histórico:', e);
+  }
+}
+
+async function cargarPaginaRango(pagina, desde, hasta) {
+  try {
+    const resp = await fetch(`/registros/pagina?pagina=${pagina}&limite=300&desde=${desde}&hasta=${hasta}`);
+    const data = await resp.json();
+    registrosTodos = data.registros;
+    registrosPaginados = data.registros;
+    paginaActual = data.pagina;
+    totalRegistrosServidor = data.total;
+    totalPaginasServidor = data.totalPaginas;
+    renderizarPaginaServidor();
+  } catch(e) {
+    console.error('Error cargando rango:', e);
+  }
+}
+
+let totalRegistrosServidor = 0;
+let totalPaginasServidor = 0;
+
+function renderizarPaginaServidor() {
+  const inicio = (paginaActual - 1) * 300;
+  const fin = Math.min(inicio + registrosPaginados.length, totalRegistrosServidor);
+  renderizarFilasTabla(registrosPaginados);
+  actualizarControlPaginacionServidor(totalRegistrosServidor, totalPaginasServidor, inicio, fin);
+}
+
+function actualizarControlPaginacionServidor(total, totalPaginas, inicio, fin) {
+  let ctrl = document.getElementById('controlPaginacion');
+  if (!ctrl) {
+    ctrl = document.createElement('div');
+    ctrl.id = 'controlPaginacion';
+    ctrl.style.cssText = 'display:flex; align-items:center; gap:8px; padding:6px 0; flex-shrink:0; color:#ffccd5; font-size:0.78rem;';
+    const seccionTabla = document.querySelector('.seccion-tabla');
+    seccionTabla.insertBefore(ctrl, document.querySelector('.tabla-reciente'));
+  }
+
+  ctrl.innerHTML = `
+    <button onclick="irAPaginaServidor(1)" ${paginaActual === 1 ? 'disabled' : ''}
+      style="background:#1a1a1a; color:#fff; border:1px solid #7a1a35; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:0.78rem; ${paginaActual === 1 ? 'opacity:0.4;' : ''}">◀◀</button>
+    <button onclick="cambiarPaginaServidor(-1)" ${paginaActual === 1 ? 'disabled' : ''}
+      style="background:#1a1a1a; color:#fff; border:1px solid #7a1a35; border-radius:6px; padding:3px 10px; cursor:pointer; font-size:0.78rem; ${paginaActual === 1 ? 'opacity:0.4;' : ''}">◀ Anterior</button>
+    <span>Página <strong style="color:#fff;">${paginaActual}</strong> de <strong style="color:#fff;">${totalPaginas}</strong></span>
+    <span style="color:#888;">|</span>
+    <span>Mostrando <strong style="color:#fff;">${inicio + 1}–${fin}</strong> de <strong style="color:#fff;">${total.toLocaleString()}</strong> registros</span>
+    <button onclick="cambiarPaginaServidor(1)" ${paginaActual === totalPaginas ? 'disabled' : ''}
+      style="background:#1a1a1a; color:#fff; border:1px solid #7a1a35; border-radius:6px; padding:3px 10px; cursor:pointer; font-size:0.78rem; ${paginaActual === totalPaginas ? 'opacity:0.4;' : ''}">Siguiente ▶</button>
+    <button onclick="irAPaginaServidor(${totalPaginas})" ${paginaActual === totalPaginas ? 'disabled' : ''}
+      style="background:#1a1a1a; color:#fff; border:1px solid #7a1a35; border-radius:6px; padding:3px 8px; cursor:pointer; font-size:0.78rem; ${paginaActual === totalPaginas ? 'opacity:0.4;' : ''}">▶▶</button>
+    <span style="color:#888;">|</span>
+    <span>Ir a página:</span>
+    <input type="number" min="1" max="${totalPaginas}" value="${paginaActual}"
+      style="width:55px; padding:3px 6px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.78rem;"
+      onchange="irAPaginaServidor(this.value)">
+  `;
+}
+
+async function cambiarPaginaServidor(direccion) {
+  const nuevaPagina = paginaActual + direccion;
+  if (nuevaPagina < 1 || nuevaPagina > totalPaginasServidor) return;
+  paginaActual = nuevaPagina;
+
+  if (modoActual === 'historico') {
+    await cargarPaginaHistorico(paginaActual);
+  } else if (modoActual === 'rango') {
+    const desde = document.getElementById('rangoDesde').value;
+    const hasta = document.getElementById('rangoHasta').value;
+    await cargarPaginaRango(paginaActual, desde, hasta);
+  }
+  document.querySelector('.seccion-tabla').scrollTop = 0;
+}
+
+async function irAPaginaServidor(valor) {
+  paginaActual = Math.max(1, Math.min(totalPaginasServidor, parseInt(valor) || 1));
+  await cambiarPaginaServidor(0);
+}
+
+
+let _buscarTimeout = null;
+function buscarEnTablaDebounced() {
+  clearTimeout(_buscarTimeout);
+  _buscarTimeout = setTimeout(() => buscarEnTabla(), 500);
+}
+
+
+async function buscarEnTabla() {
+  const termino = document.getElementById('inputBusqueda').value.trim();
+  const tipo = document.getElementById('tipoBusqueda').value;
+
+  if (!termino) {
+    document.getElementById('resultadosBusqueda').textContent = '';
+    document.querySelectorAll('#tablaReciente tr[data-resaltado]').forEach(f => {
+      f.style.background = '';
+      f.style.outline = '';
+      delete f.dataset.resaltado;
+    });
+    await actualizarDashboard();
+    return;
+  }
+
+  try {
+    const desde = document.getElementById('rangoDesde')?.value || '';
+    const hasta = document.getElementById('rangoHasta')?.value || '';
+    const LIMITE = 300;
+
+    // 1 — Obtener en qué página está el registro
+    const rangoParams = (modoActual === 'rango' && desde && hasta) ? `&desde=${desde}&hasta=${hasta}` : '';
+    const respPagina = await fetch(`/registros/pagina-de?termino=${encodeURIComponent(termino)}&tipo=${tipo}&limite=${LIMITE}${rangoParams}`);
+    const dataPagina = await respPagina.json();
+    const paginaTarget = dataPagina.pagina;
+
+    // 2 — Cargar esa página completa
+    const urlPagina = modoActual === 'rango' && desde && hasta
+      ? `/registros/pagina?pagina=${paginaTarget}&limite=${LIMITE}&desde=${desde}&hasta=${hasta}`
+      : `/registros/pagina?pagina=${paginaTarget}&limite=${LIMITE}`;
+
+    const respPag = await fetch(urlPagina);
+    const dataPag = await respPag.json();
+
+
+    registrosPaginados = dataPag.registros;
+    paginaActual = paginaTarget;
+    totalRegistrosServidor = dataPag.total;
+    totalPaginasServidor = dataPag.totalPaginas;
+
+    renderizarFilasTabla(registrosPaginados);
+    actualizarControlPaginacionServidor(dataPag.total, dataPag.totalPaginas, (paginaTarget - 1) * LIMITE, dataPag.registros.length);
+
+    // Contar total de coincidencias para mostrar en el label
+    const respTotal = await fetch(`/registros/buscar?termino=${encodeURIComponent(termino)}&tipo=${tipo}&pagina=1&limite=1${rangoParams}`);
+    const dataTotal = await respTotal.json();
+    document.getElementById('resultadosBusqueda').textContent =
+      `${dataTotal.total.toLocaleString()} resultado${dataTotal.total !== 1 ? 's' : ''} — página ${paginaTarget}`;
+
+    // 3 — Resaltar la fila encontrada
+    setTimeout(() => {
+      const campoBusqueda = {
+        'folio': 0, 'acuerdo': 9, 'tarjeta': 10, 'nombre': 4
+      }[tipo] ?? 0;
+
+      const filas = document.getElementById('tablaReciente').querySelectorAll('tr');
+      filas.forEach(fila => {
+        const celda = fila.cells[campoBusqueda];
+        if (celda && celda.textContent.trim().toLowerCase().includes(termino.toLowerCase())) {
+          fila.style.background = '#3a1a00';
+          fila.style.outline = '2px solid #ffd54f';
+          fila.dataset.resaltado = '1';
+          fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }, 100);
+
+  } catch(e) {
+    console.error('Error en búsqueda:', e);
+  }
+}
+
+
+
+
+function limpiarBusqueda() {
+  document.getElementById('inputBusqueda').value = '';
+  document.getElementById('resultadosBusqueda').textContent = '';
+  const ctrl = document.getElementById('controlPaginacion');
+  if (ctrl) ctrl.innerHTML = '';
+  actualizarDashboard();
+}
+
+
+
+// ==============================
+// IMPORTAR HISTÓRICO
+// ==============================
+let datosImportar = [];
+
+function abrirModalImportar() {
+  document.getElementById('modalImportar').style.display = 'flex';
+  document.getElementById('importarArchivo').value = '';
+  document.getElementById('importarInfo').style.display = 'none';
+  document.getElementById('importarMapeoSection').style.display = 'none';
+  document.getElementById('btnImportar').style.display = 'none';
+  document.getElementById('importarProgreso').style.display = 'none';
+  document.getElementById('importarMensaje').textContent = '';
+  archivoImportar = null;
+
+  document.getElementById('importarArchivo').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    archivoImportar = file;
+
+    const msg = document.getElementById('importarMensaje');
+
+    document.getElementById('importarNombreArchivo').textContent = file.name;
+    document.getElementById('importarTotalDetectado').textContent = 'Se contarán al procesar';
+    document.getElementById('importarColumnas').textContent = 'Se verificarán en el servidor';
+    document.getElementById('importarInfo').style.display = 'block';
+    document.getElementById('importarMapeoSection').style.display = 'none';
+    document.getElementById('btnImportar').style.display = 'block';
+    msg.textContent = '✅ Archivo listo. Presiona Importar para procesarlo en el servidor.';
+    msg.style.color = '#a5d6a7';
+  };
+}
+
+function cerrarModalImportar() {
+  document.getElementById('modalImportar').style.display = 'none';
+  archivoImportar = null;
+}
+
+let archivoImportar = null;
+
+async function ejecutarImportacion() {
+  if (!archivoImportar) return;
+  const msg = document.getElementById('importarMensaje');
+  const barra = document.getElementById('importarBarraProgreso');
+  const texto = document.getElementById('importarProgresoTexto');
+  const progreso = document.getElementById('importarProgreso');
+
+  document.getElementById('btnImportar').style.display = 'none';
+  progreso.style.display = 'flex';
+  barra.style.width = '0%';
+  msg.textContent = '';
+  texto.textContent = '⏳ Subiendo archivo al servidor...';
+  barra.style.width = '20%';
+
+  try {
+    const formData = new FormData();
+    formData.append('archivo', archivoImportar);
+
+    texto.textContent = '⏳ Procesando en servidor (esto puede tardar varios minutos)...';
+    barra.style.width = '50%';
+
+    const resp = await fetch('/importar/excel', {
+      method: 'POST',
+      body: formData
+    });
+
+    barra.style.width = '90%';
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error || 'Error del servidor');
+    }
+
+    const data = await resp.json();
+    barra.style.width = '100%';
+    texto.textContent = '✅ Importación completada';
+    msg.textContent = `✅ ${data.importados.toLocaleString()} registros importados, ${data.omitidos.toLocaleString()} omitidos (ya existían o sin folio).`;
+    msg.style.color = '#a5d6a7';
+
+    await cargarDatos();
+
+  } catch(e) {
+    msg.textContent = '❌ Error: ' + e.message;
+    msg.style.color = '#ef9a9a';
+    document.getElementById('btnImportar').style.display = 'block';
+  }
+}
+
+
+async function verificarAccesoDashboard() {
+  // Verificar si ya autenticó en esta sesión
+  if (sessionStorage.getItem('dashboard_auth') === '1') {
+    cargarDatos();
+    return;
+  }
+
+  const pwd = await pedirPasswordLog();
+  if (!pwd) {
+    document.body.innerHTML = `
+      <div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#000;color:#fff;flex-direction:column;gap:20px;font-family:Segoe UI;">
+        <h2 style="color:#f9a8b8;">🔒 Acceso denegado</h2>
+        <p style="color:#ffccd5;">Se requiere contraseña de administrador para acceder al dashboard.</p>
+        <button onclick="location.reload()" style="background:#7a1a35;color:#fff;border:none;border-radius:6px;padding:10px 24px;cursor:pointer;font-weight:600;">Reintentar</button>
+      </div>
+    `;
+    return;
+  }
+
+  const hash = await hashSHA256(pwd);
+  if (hash !== ADMIN_PASSWORD_HASH_DASH) {
+    document.body.innerHTML = `
+      <div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#000;color:#fff;flex-direction:column;gap:20px;font-family:Segoe UI;">
+        <h2 style="color:#f9a8b8;">❌ Contraseña incorrecta</h2>
+        <p style="color:#ffccd5;">La contraseña de administrador es incorrecta.</p>
+        <button onclick="location.reload()" style="background:#7a1a35;color:#fff;border:none;border-radius:6px;padding:10px 24px;cursor:pointer;font-weight:600;">Reintentar</button>
+      </div>
+    `;
+    return;
+  }
+
+  sessionStorage.setItem('dashboard_auth', '1');
+  cargarDatos();
+}
+
+function getFechaHoy() {
+  const hoy = new Date();
+  const d = String(hoy.getDate()).padStart(2, '0');
+  const m = String(hoy.getMonth() + 1).padStart(2, '0');
+  const y = hoy.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+
+function cambiarModo(modo) {
+  modoActual = modo;
+
+  document.getElementById('btnModoHoy').classList.toggle('activo', modo === 'hoy');
+  document.getElementById('btnModoRango').classList.toggle('activo', modo === 'rango');
+  document.getElementById('btnModoHistorico').classList.toggle('activo', modo === 'historico');
+
+  const selectorRango = document.getElementById('selectorRango');
+  selectorRango.style.display = modo === 'rango' ? 'flex' : 'none';
+
+  const titulo = document.getElementById('dashboardTitulo');
+  if (modo === 'hoy') titulo.textContent = '📊 Dashboard TSU — Hoy en tiempo real';
+  else if (modo === 'rango') titulo.textContent = '📊 Dashboard TSU — Por rango de fechas';
+  else titulo.textContent = '📊 Dashboard TSU — Histórico completo';
+
+  const tituloAgentes = document.getElementById('tituloAgentes');
+  if (tituloAgentes) {
+    if (modo === 'hoy') tituloAgentes.textContent = '👤 Rendimiento por agente (hoy)';
+    else if (modo === 'rango') tituloAgentes.textContent = '👤 Rendimiento por agente (rango)';
+    else tituloAgentes.textContent = '👤 Rendimiento por agente (histórico)';
+  }
+
+  actualizarDashboard();
+}
+
+async function aplicarRango() {
+  const desde = document.getElementById('rangoDesde').value;
+  const hasta = document.getElementById('rangoHasta').value;
+  if (!desde || !hasta) { alert('Selecciona ambas fechas.'); return; }
+  if (desde > hasta) { alert('La fecha inicio no puede ser mayor a la fecha fin.'); return; }
+  await actualizarDashboard();
+}
+
+
+async function actualizarDashboard() {
+  const etiqueta = document.getElementById('etiquetaCapturas');
+
+  if (modoActual === 'hoy') {
+    if (etiqueta) etiqueta.textContent = 'Capturas hoy';
+    const respHoy = await fetch('/registros/hoy');
+    const dataHoy = await respHoy.json();
+    registrosTodos = dataHoy.registros;
+    await actualizarStats('hoy');
+    actualizarTablaReciente(registrosTodos);
+
+  } else if (modoActual === 'historico') {
+    if (etiqueta) etiqueta.textContent = 'Total capturas';
+    await actualizarStats('historico');
+    await cargarPaginaHistorico(1);
+
+  } else if (modoActual === 'rango') {
+    if (etiqueta) etiqueta.textContent = 'Capturas en rango';
+    const desde = document.getElementById('rangoDesde').value;
+    const hasta = document.getElementById('rangoHasta').value;
+    if (desde && hasta) {
+      await actualizarStats('rango', desde, hasta);
+      await cargarPaginaRango(1, desde, hasta);
+    }
+  }
+}
+
+
+
+let capturistasConectados = {};
+
+async function cargarCapturistasActivos() {
+  try {
+    const resp = await fetch('/capturistas/activos');
+    const data = await resp.json();
+    capturistasConectados = {};
+    data.activos.forEach(a => {
+      capturistasConectados[a.letra] = a;
+    });
+  } catch(e) {
+    capturistasConectados = {};
+  }
+}
+
+
+
+let paginaActual = 1;
+const REGISTROS_POR_PAGINA = 300;
+let registrosPaginados = [];
+
+function actualizarTablaReciente(registros) {
+  registrosPaginados = registros;
+  paginaActual = 1;
+  const ctrl = document.getElementById('controlPaginacion');
+  if (ctrl) ctrl.innerHTML = '';
+  renderizarFilasTabla(registrosPaginados);
+}
+
+function renderizarFilasTabla(registros) {
+  const tbody = document.getElementById('tablaReciente');
+
+  if (!registros || registros.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="36" style="text-align:center;color:#ffccd5">No hay registros</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = registros.map(r => {
+    const letra = r["Folio de continuidad"]?.charAt(0);
+    const nombre = CAPTURISTA_NOMBRES[letra] || letra;
+    const monto = parseFloat(r["Monto"] || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 });
+    return `
+      <tr>
+        <td>${r["Folio de continuidad"] || ''}</td>
+        <td>${nombre || ''}</td>
+        <td>${r["Fecha de recepción de correo"] || ''}</td>
+        <td>${r["Fecha de aclaración sucursal"] || ''}</td>
+        <td>${r["Nombre del Usuario"] || ''}</td>
+        <td>${r["Sexo"] || ''}</td>
+        <td>${r["Año de nacimiento"] || ''}</td>
+        <td>${r["Referencia de sucursal"] || ''}</td>
+        <td>${r["Sucursal"] || ''}</td>
+        <td>${r["Acuerdo"] || ''}</td>
+        <td>${r["Número de tarjeta"] || ''}</td>
+        <td><span class="badge">${r["Descripción del canal"] || ''}</span></td>
+        <td>${r["Motivo de reclamación"] || ''}</td>
+        <td>${r["Descripción de motivo de reclamación"] || ''}</td>
+        <td>${r["Banco/establecimiento"] || ''}</td>
+        <td>${r["Referencia del cajero/establecimientio"] || ''}</td>
+        <td>$${monto}</td>
+        <td>${r["Fecha del movimiento"] || ''}</td>
+        <td>${r["Entidad"] || ''}</td>
+        <td>${r["Código Postal"] || ''}</td>
+        <td>${r["Municipio"] || ''}</td>
+        <td>${r["Localidad"] || ''}</td>
+        <td>${r["Estatus"] || ''}</td>
+        <td>${r["Fecha de envío a compensación"] || ''}</td>
+        <td>${r["Fecha de estatus a sucursal"] || ''}</td>
+        <td>${r["RESPUESTA"] || ''}</td>
+        <td>${r["FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN"] || ''}</td>
+        <td>${r["FECHA ENVÍO DE RESPUESTA A SUCURSAL"] || ''}</td>
+        <td>${r["FECHA ABONO"] || ''}</td>
+        <td title="${(r["OBSERVACIÓN"] || '').replace(/"/g, '&quot;')}">${r["OBSERVACIÓN"] || ''}</td>
+        <td>${r["Motivo procedencia/improcedencia"] || ''}</td>
+        <td>${r["Nombre del programa"] || ''}</td>
+        <td>${r["LOCALIDAD CAJERO"] || ''}</td>
+        <td>${r["N. CELULAR"] || ''}</td>
+        <td>${r["Bloqueo de tarjeta"] || ''}</td>
+        <td>${r["N. DE TARJETA QUE TRANSACCIONÓ"] || ''}</td>
+        <td>${r["Canal de atención"] || ''}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+
+
+async function exportarExcelCompleto() {
+  try {
+    const hoy = new Date();
+    const d = String(hoy.getDate()).padStart(2,'0');
+    const m = String(hoy.getMonth()+1).padStart(2,'0');
+    const y = hoy.getFullYear();
+    const fechaHoy = `${y}-${m}-${d}`;
+
+    const resp = await fetch(`/registros/rango?desde=${fechaHoy}&hasta=${fechaHoy}`);
+    const data = await resp.json();
+    const registrosHoy = data.registros;
+
+    if (registrosHoy.length === 0) { alert("No hay registros del día para exportar."); return; }
+
+    const toExcelSerial = (val) => {
+      const excelEpoch = Date.UTC(1899, 11, 30);
+      const serialFromYMD = (y, m, d) => Math.round((Date.UTC(y, m - 1, d) - excelEpoch) / 86400000);
+      if (val == null || val === "") return null;
+      if (typeof val === "number") return Math.floor(val);
+      if (val instanceof Date) return serialFromYMD(val.getFullYear(), val.getMonth() + 1, val.getDate());
+      if (typeof val === "string") {
+        let m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m) return serialFromYMD(parseInt(m[3],10), parseInt(m[2],10), parseInt(m[1],10));
+        m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m) return serialFromYMD(parseInt(m[1],10), parseInt(m[2],10), parseInt(m[3],10));
+      }
+      return null;
+    };
+
+    const headers = [
+      "Folio de continuidad","Fecha de recepción de correo","Fecha de aclaración sucursal",
+      "Nombre del Usuario","Sexo","Año de nacimiento","Referencia de sucursal","Sucursal",
+      "Acuerdo","Número de tarjeta","Canal","Descripción del canal",
+      "Motivo de reclamación","Descripción de motivo de reclamación","Banco/establecimiento",
+      "Referencia del cajero/establecimientio","Monto","Fecha del movimiento",
+      "Entidad","Código Postal","Municipio","Localidad","Estatus",
+      "Fecha de envío a compensación","Fecha de estatus a sucursal",
+      "RESPUESTA","FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN",
+      "FECHA ENVÍO DE RESPUESTA A SUCURSAL","FECHA ABONO","OBSERVACIÓN",
+      "Motivo procedencia/improcedencia","Nombre del programa","LOCALIDAD CAJERO",
+      "N. CELULAR","Bloqueo de tarjeta","N. DE TARJETA QUE TRANSACCIONÓ"
+    ];
+    const ws = XLSX.utils.json_to_sheet(registrosHoy, { header: headers });
+    const dateColIdxs = headers.map((h, i) => (h.toLowerCase().includes("fecha") ? i : -1)).filter(i => i !== -1);
+
+    for (let r = 0; r < registrosHoy.length; r++) {
+      for (const c of dateColIdxs) {
+        const cellRef = XLSX.utils.encode_cell({ r: r + 1, c });
+        const cell = ws[cellRef];
+        if (!cell || cell.v == null || cell.v === "") continue;
+        const serial = toExcelSerial(cell.v);
+        if (serial != null) { cell.v = serial; cell.t = "n"; cell.z = "dd/mm/yyyy"; }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Capturas del día");
+    XLSX.writeFile(wb, `TSU_hoy_${new Date().toISOString().slice(0,10)}.xlsx`);
+
+  } catch(e) {
+    alert('❌ Error al exportar: ' + e.message);
+  }
+}
+
+
+function abrirModalReporte() {
+  document.getElementById('modalReporte').style.display = 'flex';
+  document.getElementById('reporteMensaje').textContent = '';
+  // Fecha por defecto: hoy
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('reporteFecha').value = hoy;
+  document.getElementById('reporteMes').value = hoy.slice(0, 7);
+  // Llenar selector de años
+  const selectAnio = document.getElementById('reporteAnio');
+  selectAnio.innerHTML = '';
+  const anioActual = new Date().getFullYear();
+  for (let a = anioActual; a >= anioActual - 5; a--) {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    selectAnio.appendChild(opt);
+  }
+  actualizarSelectorFecha();
+}
+
+function cerrarModalReporte() {
+  document.getElementById('modalReporte').style.display = 'none';
+}
+
+function actualizarSelectorFecha() {
+  const tipo = document.getElementById('reporteTipo').value;
+  const lbls = {
+    diario: 'Selecciona el día:',
+    semanal: 'Selecciona cualquier día de la semana:',
+    mensual: 'Selecciona el mes:',
+    anual: 'Selecciona el año:'
+  };
+  document.getElementById('reporteFechaLabel').textContent = lbls[tipo];
+  document.getElementById('reporteFecha').style.display = (tipo === 'diario' || tipo === 'semanal') ? 'block' : 'none';
+  document.getElementById('reporteMes').style.display = tipo === 'mensual' ? 'block' : 'none';
+  document.getElementById('reporteAnio').style.display = tipo === 'anual' ? 'block' : 'none';
+}
+
+function obtenerFechaReporte() {
+  const tipo = document.getElementById('reporteTipo').value;
+  if (tipo === 'diario' || tipo === 'semanal') return document.getElementById('reporteFecha').value;
+  if (tipo === 'mensual') return document.getElementById('reporteMes').value + '-01';
+  if (tipo === 'anual') return document.getElementById('reporteAnio').value + '-01-01';
+  return new Date().toISOString().slice(0, 10);
+}
+
+function descargarReporte(formato) {
+  const tipo = document.getElementById('reporteTipo').value;
+  const fecha = obtenerFechaReporte();
+  if (!fecha) { document.getElementById('reporteMensaje').textContent = '⚠️ Selecciona una fecha.'; return; }
+  document.getElementById('reporteMensaje').textContent = '⏳ Generando reporte...';
+  const url = `/reporte/${formato}?tipo=${tipo}&fecha=${fecha}`;
+  const a = document.createElement('a');
+  a.href = url; a.download = `Reporte_TSU_${tipo}_${fecha}.${formato === 'word' ? 'docx' : formato}`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => { document.getElementById('reporteMensaje').textContent = '✅ Descarga iniciada.'; }, 1000);
+}
+
+function abrirModalBloqueos() {
+  const hoy = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g, '/');
+  document.getElementById('bloqueosFecha').value = hoy;
+  document.getElementById('bloqueosMsg').textContent = '';
+  document.getElementById('modalBloqueos').style.display = 'flex';
+}
+
+function cerrarModalBloqueos() {
+  document.getElementById('modalBloqueos').style.display = 'none';
+}
+
+function descargarReporteBloqueos() {
+  const fechaInput = document.getElementById('bloqueosFecha').value.trim();
+  if (!fechaInput) {
+    document.getElementById('bloqueosMsg').textContent = '⚠️ Selecciona una fecha.';
+    return;
+  }
+  // Convertir DD/MM/YYYY a YYYY-MM-DD para el endpoint
+  const partes = fechaInput.split('/');
+  if (partes.length !== 3) {
+    document.getElementById('bloqueosMsg').textContent = '⚠️ Formato de fecha inválido.';
+    return;
+  }
+  const fecha = `${partes[2]}-${partes[1]}-${partes[0]}`;
+  window.open(`/reporte/bloqueos?fecha=${fecha}`, '_blank');
+  cerrarModalBloqueos();
+}
+
+
+function abrirModalDCI() {
+  document.getElementById('dciFecha').value = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric' });
+  document.getElementById('dciMsg').textContent = '';
+  document.getElementById('modalDCI').style.display = 'flex';
+}
+
+function cerrarModalDCI() {
+  document.getElementById('modalDCI').style.display = 'none';
+}
+
+function descargarReporteDCI() {
+  const fechaInput = document.getElementById('dciFecha').value.trim();
+  if (!fechaInput) {
+    document.getElementById('dciMsg').textContent = '⚠️ Selecciona una fecha.';
+    return;
+  }
+  const partes = fechaInput.split('/');
+  if (partes.length !== 3) {
+    document.getElementById('dciMsg').textContent = '⚠️ Formato de fecha inválido.';
+    return;
+  }
+  const fecha = `${partes[2]}-${partes[1]}-${partes[0]}`;
+  window.open(`/reporte/dci?fecha=${fecha}`, '_blank');
+  cerrarModalDCI();
+}
+
+
+function abrirModalR27() {
+  const hoy = new Date();
+  const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+  const yyyy = hoy.getFullYear();
+  document.getElementById('r27Periodo').value = `${yyyy}${mm}`;
+  document.getElementById('r27Msg').textContent = '';
+  document.getElementById('r27ArchivoNombre').textContent = '';
+  document.getElementById('r27Archivo').value = '';
+  document.getElementById('modalR27').style.display = 'flex';
+}
+
+function cerrarModalR27() {
+  document.getElementById('modalR27').style.display = 'none';
+}
+
+function r27ArchivoSeleccionado() {
+  const input = document.getElementById('r27Archivo');
+  const nombre = input.files[0] ? input.files[0].name : '';
+  document.getElementById('r27ArchivoNombre').textContent = nombre ? `📎 ${nombre}` : '';
+}
+
+async function descargarReporteR27() {
+  const periodo = document.getElementById('r27Periodo').value.trim();
+  const msg = document.getElementById('r27Msg');
+  if (!periodo || !/^\d{6}$/.test(periodo)) {
+    msg.style.color = '#f9a8b8';
+    msg.textContent = '⚠️ Ingresa el periodo en formato AAAAMM (ej. 202603)';
+    return;
+  }
+  const archivo = document.getElementById('r27Archivo').files[0];
+  msg.style.color = '#a8f9b8';
+  msg.textContent = '⏳ Generando R27...';
+  const formData = new FormData();
+  formData.append('periodo', periodo);
+  if (archivo) formData.append('archivoEnriquecimiento', archivo);
+  try {
+    const resp = await fetch('/reporte/r27', { method: 'POST', body: formData });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Error desconocido' }));
+      msg.style.color = '#f9a8b8';
+      msg.textContent = `❌ ${err.error}`;
+      return;
+    }
+    const sinEnr = resp.headers.get('X-Folios-Sin-Enriquecimiento');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="(.+?)"/);
+    a.href = url;
+    a.download = match ? match[1] : `R27_${periodo}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    if (sinEnr) {
+      let folios;
+      try { folios = JSON.parse(sinEnr); } catch(e) { folios = [sinEnr]; }
+      msg.style.color = '#ffd54f';
+      msg.textContent = `⚠️ R27 generado. ${folios.length} folio(s) sin enriquecimiento: ${folios.slice(0,5).join(', ')}${folios.length > 5 ? '...' : ''}`;
+    } else {
+      msg.style.color = '#a8f9b8';
+      msg.textContent = '✅ R27 generado y descargado correctamente.';
+    }
+
+    const conflicto = resp.headers.get('X-Folios-Conflicto-Cadena');
+    if (conflicto) {
+      let conflictos;
+      try { conflictos = JSON.parse(conflicto); } catch(e) { conflictos = []; }
+      if (conflictos.length > 0) mostrarConflictosCadenaR27(conflictos);
+    }
+  } catch(e) {
+    msg.style.color = '#f9a8b8';
+    msg.textContent = `❌ Error de conexión: ${e.message}`;
+  }
+}
+
+
+function abrirModalConcentrado() {
+  document.getElementById('concentradoFecha').value = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'numeric' });
+  document.getElementById('concentradoMsg').textContent = '';
+  document.getElementById('modalConcentrado').style.display = 'flex';
+}
+
+function cerrarModalConcentrado() {
+  document.getElementById('modalConcentrado').style.display = 'none';
+}
+
+
+let eliminadosTodos = [];
+
+async function abrirModalEliminados() {
+  document.getElementById('eliminadosMensaje').textContent = '';
+  document.getElementById('eliminadosBusqueda').value = '';
+  document.getElementById('modalEliminados').style.display = 'flex';
+  document.getElementById('eliminadosTablaBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ffccd5;padding:20px;">⏳ Cargando...</td></tr>';
+
+  try {
+    const resp = await fetch('/registros-eliminados');
+    eliminadosTodos = await resp.json();
+    filtrarEliminados();
+  } catch(e) {
+    document.getElementById('eliminadosTablaBody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ef9a9a;padding:20px;">❌ Error al cargar</td></tr>';
+  }
+}
+
+function cerrarModalEliminados() {
+  document.getElementById('modalEliminados').style.display = 'none';
+}
+
+
+
+function abrirModalActualizarExcel() {
+  document.getElementById('actualizarArchivoExcel').value = '';
+  document.getElementById('actualizarMsg').textContent = '';
+  document.getElementById('actualizarProgreso').style.display = 'none';
+  document.getElementById('actualizarBarra').style.width = '0%';
+  document.getElementById('modalActualizarExcel').style.display = 'flex';
+}
+
+function cerrarModalActualizarExcel() {
+  document.getElementById('modalActualizarExcel').style.display = 'none';
+}
+
+
+function mostrarDescripcionActualizacion(modo) {
+  const textos = {
+    'sin_localidad': '📋 El Excel debe tener estas columnas:<br><strong style="color:#fff;">FOLIO, RESPUESTA, FECHA DE RESPUESTA POR COMP Y LIQUIDACIÓN, FECHA ENVÍO DE RESPUESTA A SUCURSAL, FECHA ABONO, OBSERVACIÓN, MOTIVO PROCEDENCIA/IMPROCEDENCIA</strong>',
+    'solo_localidad': '📋 El Excel debe tener estas columnas:<br><strong style="color:#fff;">FOLIO, LOCALIDAD CAJERO</strong>'
+  };
+  document.getElementById('actualizarDescTexto').innerHTML = textos[modo] || '';
+  document.getElementById('actualizarArchivoExcel').value = '';
+  document.getElementById('actualizarMsg').textContent = '';
+  document.getElementById('actualizarProgreso').style.display = 'none';
+  document.getElementById('actualizarBarra').style.width = '0%';
+}
+
+async function ejecutarActualizacionExcel(modo = 'sin_localidad') {
+  const archivo = document.getElementById('actualizarArchivoExcel').files[0];
+  const msg = document.getElementById('actualizarMsg');
+  const barra = document.getElementById('actualizarBarra');
+  const progreso = document.getElementById('actualizarProgreso');
+
+  if (!archivo) { msg.textContent = '⚠️ Selecciona un archivo Excel.'; msg.style.color = '#ffd54f'; return; }
+
+  msg.textContent = '';
+  progreso.style.display = 'flex';
+  barra.style.width = '20%';
+
+  try {
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    formData.append('modo', modo);
+
+    barra.style.width = '50%';
+    const resp = await fetch('/registros/actualizar-excel', {
+      method: 'POST',
+      body: formData
+    });
+
+    barra.style.width = '90%';
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error || 'Error del servidor');
+    }
+
+    const data = await resp.json();
+    barra.style.width = '100%';
+    msg.textContent = `✅ ${data.actualizados.toLocaleString()} registros actualizados, ${data.omitidos.toLocaleString()} omitidos.`;
+    msg.style.color = '#a5d6a7';
+    await actualizarDashboard();
+
+  } catch(e) {
+    msg.textContent = '❌ Error: ' + e.message;
+    msg.style.color = '#ef9a9a';
+    progreso.style.display = 'none';
+  }
+}
+
+
+async function ejecutarValidacionCadenaFechas() {
+  document.getElementById('modalValidacionFechas').style.display = 'flex';
+  const contenido = document.getElementById('validacionFechasContenido');
+  const resumen   = document.getElementById('validacionFechasResumen');
+  const btnDesc   = document.getElementById('validacionFechasBtnDescargar');
+  contenido.innerHTML = '<p style="color:#aaa;padding:20px 0;">Consultando registros...</p>';
+  resumen.textContent = '';
+  btnDesc.style.display = 'none';
+
+  let registros;
+  try {
+    const resp = await fetch('/registros');
+    if (!resp.ok) throw new Error('Error al obtener registros');
+    registros = await resp.json();
+  } catch (e) {
+    contenido.innerHTML = `<p style="color:#ef9a9a;">❌ Error: ${e.message}</p>`;
+    return;
+  }
+
+  const hoy = new Date(); hoy.setHours(23,59,59,999);
+
+  function parseFecha(v) {
+    if (!v || v.trim() === '') return null;
+    const s = v.trim();
+    let d, m, y;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+      [d, m, y] = s.split('/').map(Number);
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      [y, m, d] = s.split('-').map(Number);
+    } else return null;
+    const dt = new Date(y, m - 1, d);
+    if (isNaN(dt)) return null;
+    return dt;
+  }
+
+  const errores = [];
+
+  for (const r of registros) {
+    const folio     = r['Folio de continuidad'] || '';
+    const respuesta = (r['RESPUESTA'] || '').trim().toUpperCase();
+
+    const fMov   = parseFecha(r['Fecha del movimiento']);
+    const fAclar = parseFecha(r['Fecha de aclaración sucursal']);
+    const fRecep = parseFecha(r['Fecha de recepción de correo']);
+    const fRComp = parseFecha(r['FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN']);
+    const fEnvio = parseFecha(r['FECHA ENVÍO DE RESPUESTA A SUCURSAL']);
+    const fAbono = parseFecha(r['FECHA ABONO']);
+
+    const reglas = [];
+
+    if (!fMov)   reglas.push('FECHA_MOV vacía o inválida');
+    if (!fAclar) reglas.push('FECHA_ACLAR vacía o inválida');
+    if (!fRecep) reglas.push('FECHA_RECEP vacía o inválida');
+
+    if (fMov   && fMov   > hoy) reglas.push('FECHA_MOV está en el futuro');
+    if (fAclar && fAclar > hoy) reglas.push('FECHA_ACLAR está en el futuro');
+    if (fRecep && fRecep > hoy) reglas.push('FECHA_RECEP está en el futuro');
+
+    if (fMov && fAclar && fMov > fAclar)     reglas.push('FECHA_MOV > FECHA_ACLAR');
+    if (fAclar && fRecep && fAclar > fRecep) reglas.push('FECHA_ACLAR > FECHA_RECEP');
+
+    if (fRComp) {
+      if (fRComp > hoy) reglas.push('FECHA_RESP_COMP está en el futuro');
+      if (fRecep && fRecep > fRComp) reglas.push('FECHA_RECEP > FECHA_RESP_COMP');
+    }
+    if (fEnvio) {
+      if (fEnvio > hoy) reglas.push('FECHA_ENVIO_RESP está en el futuro');
+      if (fRComp && fRComp > fEnvio) reglas.push('FECHA_RESP_COMP > FECHA_ENVIO_RESP');
+    }
+
+    if (fAbono) {
+      if (fAbono > hoy) reglas.push('FECHA_ABONO está en el futuro');
+      if (fMov  && fMov  > fAbono)   reglas.push('FECHA_MOV > FECHA_ABONO');
+      if (fRComp && fAbono > fRComp) reglas.push('FECHA_ABONO > FECHA_RESP_COMP');
+    }
+
+    if (reglas.length > 0) {
+      errores.push({
+        folio,
+        respuesta: r['RESPUESTA'] || '',
+        fecha_mov:        r['Fecha del movimiento'] || '',
+        fecha_aclar:      r['Fecha de aclaración sucursal'] || '',
+        fecha_recep:      r['Fecha de recepción de correo'] || '',
+        fecha_resp_comp:  r['FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN'] || '',
+        fecha_envio_resp: r['FECHA ENVÍO DE RESPUESTA A SUCURSAL'] || '',
+        fecha_abono:      r['FECHA ABONO'] || '',
+        reglas: reglas.join(' | ')
+      });
+    }
+  }
+
+  if (errores.length === 0) {
+    contenido.innerHTML = '<p style="color:#a5d6a7;padding:20px 0;font-size:15px;">✅ Todos los registros cumplen la cadena de fechas.</p>';
+    resumen.textContent = `Revisados: ${registros.length} registros — Sin errores.`;
+    return;
+  }
+
+  resumen.textContent = `Revisados: ${registros.length} registros — ⚠️ ${errores.length} con error de fechas.`;
+  btnDesc.style.display = 'inline-block';
+  window._erroresCadenaFechas = errores;
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <thead><tr style="background:#37474f;color:#eceff1;position:sticky;top:0;">
+      <th style="padding:6px 8px;text-align:left;">Folio</th>
+      <th style="padding:6px 8px;">Respuesta</th>
+      <th style="padding:6px 8px;">FECHA_MOV</th>
+      <th style="padding:6px 8px;">FECHA_ACLAR</th>
+      <th style="padding:6px 8px;">FECHA_RECEP</th>
+      <th style="padding:6px 8px;">FECHA_RESP_COMP</th>
+      <th style="padding:6px 8px;">FECHA_ENVIO</th>
+      <th style="padding:6px 8px;">FECHA_ABONO</th>
+      <th style="padding:6px 8px;text-align:left;">Regla(s) incumplida(s)</th>
+    </tr></thead><tbody>`;
+
+  for (const e of errores) {
+    html += `<tr style="border-bottom:1px solid #37474f;">
+      <td style="padding:5px 8px;color:#80cbc4;white-space:nowrap;">${e.folio}</td>
+      <td style="padding:5px 8px;text-align:center;white-space:nowrap;">${e.respuesta}</td>
+      <td style="padding:5px 8px;text-align:center;">${e.fecha_mov}</td>
+      <td style="padding:5px 8px;text-align:center;">${e.fecha_aclar}</td>
+      <td style="padding:5px 8px;text-align:center;">${e.fecha_recep}</td>
+      <td style="padding:5px 8px;text-align:center;">${e.fecha_resp_comp}</td>
+      <td style="padding:5px 8px;text-align:center;">${e.fecha_envio_resp}</td>
+      <td style="padding:5px 8px;text-align:center;">${e.fecha_abono}</td>
+      <td style="padding:5px 8px;color:#ef9a9a;">${e.reglas}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  contenido.innerHTML = html;
+}
+
+
+function mostrarConflictosCadenaR27(conflictos) {
+  window._conflictosR27 = conflictos;
+  const contenido = document.getElementById('conflictosR27Contenido');
+  const resumen   = document.getElementById('conflictosR27Resumen');
+  resumen.textContent = `⚠️ ${conflictos.length} folio(s) con cadena de fechas rota en el R27 generado.`;
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <thead><tr style="background:#37474f;color:#eceff1;position:sticky;top:0;">
+      <th style="padding:6px 8px;text-align:left;">Folio</th>
+      <th style="padding:6px 8px;">FECHA_MOV</th>
+      <th style="padding:6px 8px;">FECHA_RECEP</th>
+      <th style="padding:6px 8px;">FECHA_RESOLUCION</th>
+      <th style="padding:6px 8px;">FECHA_ABONO</th>
+      <th style="padding:6px 8px;text-align:left;">Regla(s) rota(s)</th>
+    </tr></thead><tbody>`;
+
+  for (const c of conflictos) {
+    html += `<tr style="border-bottom:1px solid #37474f;">
+      <td style="padding:5px 8px;color:#80cbc4;white-space:nowrap;">${c.folio}</td>
+      <td style="padding:5px 8px;text-align:center;">${c.fecha_mov}</td>
+      <td style="padding:5px 8px;text-align:center;">${c.fecha_recep}</td>
+      <td style="padding:5px 8px;text-align:center;">${c.fecha_resolucion}</td>
+      <td style="padding:5px 8px;text-align:center;">${c.fecha_abono}</td>
+      <td style="padding:5px 8px;color:#ef9a9a;">${c.reglas}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  contenido.innerHTML = html;
+  document.getElementById('modalConflictosR27').style.display = 'flex';
+}
+
+function descargarConflictosR27() {
+  const conflictos = window._conflictosR27 || [];
+  if (!conflictos.length) return;
+  const enc = ['Folio','FECHA_MOV','FECHA_RECEP','FECHA_RESOLUCION','FECHA_ABONO','Regla(s) rota(s)'];
+  const filas = conflictos.map(c => [
+    c.folio, c.fecha_mov, c.fecha_recep, c.fecha_resolucion, c.fecha_abono, c.reglas
+  ]);
+  const csv = [enc, ...filas].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const hoy  = new Date();
+  const dd   = String(hoy.getDate()).padStart(2,'0');
+  const mm   = String(hoy.getMonth()+1).padStart(2,'0');
+  a.href     = url;
+  a.download = `conflictos_cadena_R27_${dd}${mm}${hoy.getFullYear()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+function descargarErroresCadenaFechas() {
+  const errores = window._erroresCadenaFechas || [];
+  if (!errores.length) return;
+  const enc = ['Folio','Respuesta','FECHA_MOV','FECHA_ACLAR','FECHA_RECEP','FECHA_RESP_COMP','FECHA_ENVIO_RESP','FECHA_ABONO','Regla(s) incumplida(s)'];
+  const filas = errores.map(e => [
+    e.folio, e.respuesta, e.fecha_mov, e.fecha_aclar, e.fecha_recep,
+    e.fecha_resp_comp, e.fecha_envio_resp, e.fecha_abono, e.reglas
+  ]);
+  const csv = [enc, ...filas].map(row => row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const hoy  = new Date();
+  const dd   = String(hoy.getDate()).padStart(2,'0');
+  const mm   = String(hoy.getMonth()+1).padStart(2,'0');
+  a.href     = url;
+  a.download = `errores_cadena_fechas_${dd}${mm}${hoy.getFullYear()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+function filtrarEliminados() {
+  const termino = document.getElementById('eliminadosBusqueda').value.trim().toLowerCase();
+  const filtrados = termino
+    ? eliminadosTodos.filter(r => r.folio.toLowerCase().includes(termino))
+    : eliminadosTodos;
+
+  document.getElementById('eliminadosTotal').textContent = `${filtrados.length} registro${filtrados.length !== 1 ? 's' : ''}`;
+  renderizarEliminados(filtrados);
+}
+
+function renderizarEliminados(lista) {
+  const tbody = document.getElementById('eliminadosTablaBody');
+  if (lista.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ffccd5;padding:20px;">No hay registros eliminados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = lista.map(r => {
+    const datos = JSON.parse(r.datos || '{}');
+    const fechaElim = new Date(r.fecha_eliminacion).toLocaleString('es-MX');
+    const monto = datos.monto ? '$' + parseFloat(datos.monto).toLocaleString('es-MX', {minimumFractionDigits:2}) : '—';
+    return `
+      <tr style="border-bottom:1px solid #2a2a2a;">
+        <td style="padding:8px 12px; color:#ffd54f; font-family:monospace;">${r.folio}</td>
+        <td style="padding:8px 12px; color:#fff;">${datos.nombre_usuario || '—'}</td>
+        <td style="padding:8px 12px; color:#ffccd5;">${datos.fecha_recepcion || '—'}</td>
+        <td style="padding:8px 12px; color:#ffb74d;">${monto}</td>
+        <td style="padding:8px 12px; color:#aaa;">${r.eliminado_por || '—'}</td>
+        <td style="padding:8px 12px; color:#aaa;">${fechaElim}</td>
+        <td style="padding:8px 12px; color:#aaa;">${r.motivo || '—'}</td>
+        <td style="padding:8px 12px; text-align:center; display:flex; gap:6px; justify-content:center;">
+          <button onclick="recuperarEliminado(${r.id}, '${r.folio}')"
+            style="background:#1a5c38; color:#fff; border:none; border-radius:6px; padding:5px 12px; cursor:pointer; font-size:0.78rem; font-weight:600;">
+            ♻️ Recuperar
+          </button>
+          <button onclick="borrarDefinitivo(${r.id}, '${r.folio}')"
+            style="background:#5a0a0a; color:#fff; border:none; border-radius:6px; padding:5px 12px; cursor:pointer; font-size:0.78rem; font-weight:600;">
+            🗑 Borrar
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function recuperarEliminado(id, folio) {
+  const msg = document.getElementById('eliminadosMensaje');
+  if (!confirm(`¿Recuperar el folio ${folio} y devolverlo al histórico?`)) return;
+  msg.textContent = '⏳ Recuperando...';
+  msg.style.color = '#ffccd5';
+  try {
+    const resp = await fetch(`/registros-eliminados/recuperar/${id}`, { method: 'POST' });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error);
+    eliminadosTodos = eliminadosTodos.filter(r => r.id !== id);
+    filtrarEliminados();
+    msg.textContent = `✅ Folio ${folio} recuperado correctamente.`;
+    msg.style.color = '#a5d6a7';
+    await actualizarDashboard();
+  } catch(e) {
+    msg.textContent = `❌ Error: ${e.message}`;
+    msg.style.color = '#ef9a9a';
+  }
+}
+
+async function borrarDefinitivo(id, folio) {
+  const msg = document.getElementById('eliminadosMensaje');
+  if (!confirm(`¿Borrar definitivamente el folio ${folio}? Esta acción no se puede deshacer.`)) return;
+  try {
+    await fetch(`/registros-eliminados/${id}`, { method: 'DELETE' });
+    eliminadosTodos = eliminadosTodos.filter(r => r.id !== id);
+    filtrarEliminados();
+    msg.textContent = `✅ Folio ${folio} eliminado definitivamente.`;
+    msg.style.color = '#a5d6a7';
+  } catch(e) {
+    msg.textContent = `❌ Error: ${e.message}`;
+    msg.style.color = '#ef9a9a';
+  }
+}
+
+
+async function generarConcentrado() {
+  const fechaInput = document.getElementById('concentradoFecha').value.trim();
+  const msg = document.getElementById('concentradoMsg');
+  if (!fechaInput) { msg.textContent = '⚠️ Selecciona una fecha.'; return; }
+  const partes = fechaInput.split('/');
+  if (partes.length !== 3) { msg.textContent = '⚠️ Formato inválido.'; return; }
+  const fecha = `${partes[2]}-${partes[1]}-${partes[0]}`;
+
+  msg.textContent = '⏳ Revisando duplicados...';
+
+  try {
+    const resp = await fetch(`/reporte/concentrado?fecha=${fecha}`);
+    if (!resp.ok) { msg.textContent = '❌ Error al consultar.'; return; }
+    const data = await resp.json();
+
+    if (data.resultados.length === 0) {
+      msg.textContent = '⚠️ No hay registros para esa fecha.';
+      return;
+    }
+
+    cerrarModalConcentrado();
+
+    // Procesar duplicados uno a uno
+    let registrosFinal = [];
+    for (let i = 0; i < data.resultados.length; i++) {
+      const item = data.resultados[i];
+      const tieneDup = item.duplicado_llave1 || item.duplicado_llave2;
+
+      if (!tieneDup) {
+        registrosFinal.push(item.registro);
+        continue;
+      }
+
+      // Mostrar modal de duplicado y esperar decisión
+      const decision = await new Promise(async resolve => {
+        const folDup = item.duplicado_llave1 || item.duplicado_llave2;
+        const tipoDup = item.duplicado_llave1
+          ? 'Llave: Acuerdo + Monto + Fecha movimiento'
+          : 'Llave: Nombre + Monto + Fecha movimiento';
+
+        // Obtener el registro duplicado del servidor
+        let regDup = {};
+        try {
+          const respDup = await fetch(`/registros/buscar?termino=${encodeURIComponent(folDup)}&tipo=folio&pagina=1&limite=1`);
+          const dataDup = await respDup.json();
+          regDup = dataDup.registros?.[0] || {};
+        } catch(e) { regDup = {}; }
+
+        const r = item.registro;
+        document.getElementById('dupColDia').innerHTML = `📋 Registro del día<br><span style="color:#ffd54f; font-family:monospace; font-size:0.78rem;">${r['Folio de continuidad']}</span>`;
+        document.getElementById('dupColHistorico').innerHTML = `🗂 Folio duplicado<br><span style="color:#ffd54f; font-family:monospace; font-size:0.78rem;">${folDup}</span>`;
+        document.getElementById('concentradoDupTipo').textContent = tipoDup;
+        document.getElementById('concentradoDupProgreso').textContent = `Registro ${i + 1} de ${data.resultados.length}`;
+
+        const campos = [
+          ['Folio de continuidad','Folio'],
+          ['Fecha de recepción de correo','Fecha recepción'],
+          ['Fecha de aclaración sucursal','Fecha aclaración'],
+          ['Nombre del Usuario','Nombre usuario'],
+          ['Sexo','Sexo'],
+          ['Año de nacimiento','Año nac.'],
+          ['Referencia de sucursal','Ref. sucursal'],
+          ['Sucursal','Sucursal'],
+          ['Acuerdo','Acuerdo'],
+          ['Número de tarjeta','Tarjeta'],
+          ['Canal','Canal'],
+          ['Descripción del canal','Desc. canal'],
+          ['Motivo de reclamación','Motivo'],
+          ['Descripción de motivo de reclamación','Desc. motivo'],
+          ['Banco/establecimiento','Banco/Est.'],
+          ['Referencia del cajero/establecimientio','Ref. cajero'],
+          ['Monto','Monto'],
+          ['Fecha del movimiento','Fecha mov.'],
+          ['Entidad','Entidad'],
+          ['Código Postal','C.P.'],
+          ['Municipio','Municipio'],
+          ['Localidad','Localidad'],
+          ['Estatus','Estatus'],
+          ['Fecha de envío a compensación','Fecha envío'],
+          ['Fecha de estatus a sucursal','Fecha estatus'],
+          ['RESPUESTA','Respuesta'],
+          ['FECHA DE RESPUESTA POR COMP. Y LIQUIDACIÓN','Fecha resp. comp.'],
+          ['FECHA ENVÍO DE RESPUESTA A SUCURSAL','Fecha envío resp.'],
+          ['FECHA ABONO','Fecha abono'],
+          ['OBSERVACIÓN','Observación'],
+          ['Motivo procedencia/improcedencia','Motivo proc.'],
+          ['Nombre del programa','Programa'],
+          ['LOCALIDAD CAJERO','Localidad cajero'],
+          ['N. CELULAR','Celular'],
+          ['Bloqueo de tarjeta','Bloqueo'],
+          ['N. DE TARJETA QUE TRANSACCIONÓ','Tarjeta transaccionó'],
+        ];
+
+        const llavesCampos = item.duplicado_llave1
+          ? ['Acuerdo','Monto','Fecha del movimiento']
+          : ['Nombre del Usuario','Monto','Fecha del movimiento'];
+
+        const tbody = document.getElementById('concentradoDupTablaBody');
+        tbody.innerHTML = campos.map(([key, label]) => {
+          const valDia = key === 'Monto'
+            ? '$' + Number(r[key] || 0).toLocaleString('es-MX', {minimumFractionDigits:2})
+            : (r[key] || '—');
+          const valDup = key === 'Monto'
+            ? '$' + Number(regDup[key] || 0).toLocaleString('es-MX', {minimumFractionDigits:2})
+            : (regDup[key] || '—');
+          const esLlave = llavesCampos.includes(key);
+          const difiere = String(r[key] || '') !== String(regDup[key] || '');
+          const bgRow = esLlave ? 'background:#1a0a1a;' : (difiere ? 'background:#0a1a0a;' : '');
+          const colorLlave = esLlave ? 'color:#f9a8b8; font-weight:700;' : '';
+          return `
+            <tr style="border-bottom:1px solid #1a1a1a; ${bgRow}">
+              <td style="padding:5px 10px; color:#aaa; ${colorLlave}">${label}${esLlave ? ' 🔑' : ''}</td>
+              <td style="padding:5px 10px; color:#ffffff; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${(r[key]||'').toString().replace(/"/g,'')}">${valDia}</td>
+              <td style="padding:5px 10px; color:#ffd54f; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${(regDup[key]||'').toString().replace(/"/g,'')}">${valDup}</td>
+            </tr>
+          `;
+        }).join('');
+
+        document.getElementById('modalConcentradoDuplicado').style.display = 'flex';
+
+        document.getElementById('btnConcentradoEliminar').onclick = async () => {
+          document.getElementById('modalConcentradoDuplicado').style.display = 'none';
+          await fetch(`/registros/${encodeURIComponent(item.registro['Folio de continuidad'])}`, { method: 'DELETE' });
+          resolve('eliminar');
+        };
+        document.getElementById('btnConcentradoDejar').onclick = () => {
+          document.getElementById('modalConcentradoDuplicado').style.display = 'none';
+          resolve('dejar');
+        };
+      });
+
+      if (decision === 'dejar') registrosFinal.push(item.registro);
+    }
+
+    // Generar Excel con los registros finales
+    const respExcel = await fetch('/reporte/concentrado/excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registros: registrosFinal, nombreArchivo: data.nombreArchivo })
+    });
+
+    if (!respExcel.ok) { alert('❌ Error al generar el Excel.'); return; }
+
+    const blob = await respExcel.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = data.nombreArchivo;
+    a.click();
+    URL.revokeObjectURL(url);
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('concentradoMsg').textContent = '❌ Error inesperado.';
+  }
+}
+
+
+
+let registroEditandoDash = null;
+let cambiosSesionEdicion = [];
+
+async function abrirModalEditarFolios() {
+  const pwd = await pedirPasswordLog();
+  if (!pwd) return;
+  const hash = await hashSHA256(pwd);
+  if (hash !== ADMIN_PASSWORD_HASH_DASH) {
+    alert('❌ Contraseña incorrecta.');
+    return;
+  }
+  registroEditandoDash = null;
+  cambiosSesionEdicion = [];
+  document.getElementById('editFolioInput').value = '';
+  document.getElementById('editFolioError').textContent = '';
+  document.getElementById('editRegistroInfo').style.display = 'none';
+  document.getElementById('editCampoSection').style.display = 'none';
+  document.getElementById('editValorSection').style.display = 'none';
+  document.getElementById('editHistorialSection').style.display = 'none';
+  document.getElementById('editHistorialLista').innerHTML = '';
+  document.getElementById('editMensaje').textContent = '';
+  document.getElementById('editCampoSelector').value = '';
+  cambiarTabEdicion('individual');
+  document.getElementById('modalEditarFolios').style.display = 'flex';
+  setTimeout(() => document.getElementById('editFolioInput').focus(), 100);
+}
+
+
+function cambiarTabEdicion(tab) {
+  const esIndividual = tab === 'individual';
+  document.getElementById('tabIndividual').style.background = esIndividual ? '#7a1a35' : '#333';
+  document.getElementById('tabIndividual').style.color = esIndividual ? '#fff' : '#aaa';
+  document.getElementById('tabMasiva').style.background = !esIndividual ? '#5a1a7a' : '#333';
+  document.getElementById('tabMasiva').style.color = !esIndividual ? '#fff' : '#aaa';
+
+  const mostrar = esIndividual ? 'block' : 'none';
+  document.getElementById('editFolioInput').closest('div[style]').style.display = mostrar;
+  document.getElementById('editFolioError').style.display = mostrar;
+  document.getElementById('editRegistroInfo').style.display = 'none';  // siempre oculto al cambiar tab
+  document.getElementById('editCampoSection').style.display = 'none';
+  document.getElementById('editValorSection').style.display = 'none';
+  document.getElementById('editHistorialSection').style.display = esIndividual ? '' : 'none';
+  document.getElementById('editMensaje').style.display = mostrar;
+  document.getElementById('seccionMasiva').style.display = esIndividual ? 'none' : 'flex';
+
+  // Reset masiva al cambiar
+  if (!esIndividual) {
+    document.getElementById('masivaCampo').value = '';
+    document.getElementById('masivaBuscarSection').style.display = 'none';
+    document.getElementById('masivaResultadoSection').style.display = 'none';
+    document.getElementById('masivaMensaje').textContent = '';
+  }
+}
+
+function masivaCampoChange() {
+  const campo = document.getElementById('masivaCampo').value;
+  const section = document.getElementById('masivaBuscarSection');
+  const resultado = document.getElementById('masivaResultadoSection');
+  document.getElementById('masivaMensaje').textContent = '';
+  resultado.style.display = 'none';
+
+  if (!campo) { section.style.display = 'none'; return; }
+
+  const estiloInput = 'width:100%; padding:7px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.85rem; box-sizing:border-box;';
+  const container = document.getElementById('masivaBuscarContainer');
+
+  if (campo === 'canal') {
+    container.innerHTML = `<select id="masivaBuscarValor" style="${estiloInput}"><option value="206">206 — CAJEROS AUTOMATICOS</option><option value="207">207 — TERMINAL PUNTO DE VENTA</option><option value="208">208 — SUCURSALES</option></select>`;
+  } else if (campo === 'motivo') {
+    container.innerHTML = `<select id="masivaBuscarValor" style="${estiloInput}"><option value="310">310</option><option value="301">301</option><option value="314">314</option></select>`;
+  } else if (campo === 'sexo') {
+    container.innerHTML = `<select id="masivaBuscarValor" style="${estiloInput}"><option value="H">H</option><option value="M">M</option></select>`;
+  } else if (campo === 'bloqueo') {
+    container.innerHTML = `<select id="masivaBuscarValor" style="${estiloInput}"><option value="NO">NO</option><option value="SI">SI</option></select>`;
+  } else if (campo === 'fecha_aclaracion' || campo === 'fecha_movimiento') {
+    container.innerHTML = `<input type="date" id="masivaBuscarValor" style="${estiloInput}">`;
+  } else if (campo === 'monto') {
+    container.innerHTML = `<input type="number" id="masivaBuscarValor" step="0.01" placeholder="Ej: 1500.00" style="${estiloInput}">`;
+  } else {
+    container.innerHTML = `<input type="text" id="masivaBuscarValor" style="${estiloInput}; text-transform:uppercase;" placeholder="Valor a buscar...">`;
+  }
+
+  section.style.display = 'flex';
+}
+
+async function masivaBuscarAfectados() {
+  const campo = document.getElementById('masivaCampo').value;
+  const valorEl = document.getElementById('masivaBuscarValor');
+  const msg = document.getElementById('masivaMensaje');
+  if (!campo || !valorEl) return;
+
+  let valorBuscar = valorEl.value.trim();
+  if (!valorBuscar) { msg.textContent = '⚠️ Escribe el valor a buscar.'; msg.style.color = '#ef9a9a'; return; }
+
+  // Convertir fecha a DD/MM/YYYY
+  if (campo === 'fecha_aclaracion' || campo === 'fecha_movimiento') {
+    const p = valorBuscar.split('-');
+    if (p.length === 3) valorBuscar = `${p[2]}/${p[1]}/${p[0]}`;
+  }
+
+  msg.textContent = '⏳ Buscando...';
+  msg.style.color = '#ffccd5';
+
+  try {
+    const resp = await fetch(`/registros/buscar-masivo?campo=${encodeURIComponent(campo)}&valor=${encodeURIComponent(valorBuscar)}`);
+    const data = await resp.json();
+
+    const resultSection = document.getElementById('masivaResultadoSection');
+    const foliosDiv = document.getElementById('masivaFoliosEncontrados');
+
+    if (!data.folios || data.folios.length === 0) {
+      msg.textContent = '⚠️ No se encontraron registros con ese valor.';
+      msg.style.color = '#ffd54f';
+      resultSection.style.display = 'none';
+      return;
+    }
+
+    foliosDiv.innerHTML = `<strong style="color:#fff;">${data.folios.length} registro(s) encontrado(s):</strong><br><span style="color:#aaa;">${data.folios.join(', ')}</span>`;
+
+    // Construir input para el valor nuevo con el mismo tipo
+    const estiloInput = 'width:100%; padding:7px; border-radius:6px; border:1px solid #1a5c38; background:#000; color:#fff; font-size:0.85rem; box-sizing:border-box;';
+    const container = document.getElementById('masivaNuevoContainer');
+
+    if (campo === 'canal') {
+      container.innerHTML = `<select id="masivaNuevoValor" style="${estiloInput}"><option value="206">206 — CAJEROS AUTOMATICOS</option><option value="207">207 — TERMINAL PUNTO DE VENTA</option><option value="208">208 — SUCURSALES</option></select>`;
+    } else if (campo === 'motivo') {
+      container.innerHTML = `<select id="masivaNuevoValor" style="${estiloInput}"><option value="310">310</option><option value="301">301</option><option value="314">314</option></select>`;
+    } else if (campo === 'sexo') {
+      container.innerHTML = `<select id="masivaNuevoValor" style="${estiloInput}"><option value="H">H</option><option value="M">M</option></select>`;
+    } else if (campo === 'bloqueo') {
+      container.innerHTML = `<select id="masivaNuevoValor" style="${estiloInput}"><option value="NO">NO</option><option value="SI">SI</option></select>`;
+    } else if (campo === 'fecha_aclaracion' || campo === 'fecha_movimiento') {
+      container.innerHTML = `<input type="date" id="masivaNuevoValor" style="${estiloInput}">`;
+    } else if (campo === 'monto') {
+      container.innerHTML = `<input type="number" id="masivaNuevoValor" step="0.01" style="${estiloInput}">`;
+    } else {
+      container.innerHTML = `<input type="text" id="masivaNuevoValor" style="${estiloInput}; text-transform:uppercase;" placeholder="Valor correcto...">`;
+    }
+
+    // Guardar valor buscado en dataset para usarlo al aplicar
+    document.getElementById('masivaResultadoSection').dataset.valorBuscar = valorBuscar;
+    resultSection.style.display = 'flex';
+    msg.textContent = '';
+
+  } catch(e) {
+    msg.textContent = '❌ Error al buscar: ' + e.message;
+    msg.style.color = '#ef9a9a';
+  }
+}
+
+async function masivaAplicar() {
+  const campo = document.getElementById('masivaCampo').value;
+  const valorBuscar = document.getElementById('masivaResultadoSection').dataset.valorBuscar;
+  const nuevoEl = document.getElementById('masivaNuevoValor');
+  const msg = document.getElementById('masivaMensaje');
+  if (!campo || !nuevoEl) return;
+
+  let valorNuevo = nuevoEl.value.trim();
+  if (!valorNuevo) { msg.textContent = '⚠️ Escribe el valor correcto.'; msg.style.color = '#ef9a9a'; return; }
+
+  // Convertir fecha
+  if (campo === 'fecha_aclaracion' || campo === 'fecha_movimiento') {
+    const p = valorNuevo.split('-');
+    if (p.length === 3) valorNuevo = `${p[2]}/${p[1]}/${p[0]}`;
+  }
+
+  if (valorNuevo.toUpperCase() === valorBuscar.toUpperCase()) {
+    msg.textContent = '⚠️ El valor nuevo es igual al actual.';
+    msg.style.color = '#ffd54f';
+    return;
+  }
+
+  const foliosDiv = document.getElementById('masivaFoliosEncontrados');
+  const totalFolios = foliosDiv.querySelectorAll ? document.getElementById('masivaResultadoSection').dataset.valorBuscar : '';
+  const confirmar = confirm(`⚠️ ¿Confirmas aplicar el cambio en TODOS los registros encontrados?\n\nCampo: ${campo}\nValor actual: ${valorBuscar}\nValor nuevo: ${valorNuevo}\n\nEsta acción no se puede deshacer.`);
+  if (!confirmar) return;
+
+  msg.textContent = '⏳ Aplicando...';
+  msg.style.color = '#ffccd5';
+
+  try {
+    const resp = await fetch('/registros/edicion-masiva', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campo, valorBuscar, valorNuevo })
+    });
+    const data = await resp.json();
+
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+
+    // Log de la operación
+    await fetch('/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        capturista: 'DASHBOARD',
+        accion: 'EDICION_MASIVA',
+        folio: `${data.total} registros`,
+        detalle: { campo, antes: valorBuscar, despues: valorNuevo, folios: data.folios }
+      })
+    });
+
+    msg.textContent = `✅ ${data.total} registro(s) actualizados correctamente.`;
+    msg.style.color = '#a5d6a7';
+
+    // Resetear sección para nueva operación
+    document.getElementById('masivaResultadoSection').style.display = 'none';
+    document.getElementById('masivaBuscarSection').style.display = 'none';
+    document.getElementById('masivaCampo').value = '';
+
+  } catch(e) {
+    msg.textContent = '❌ Error: ' + e.message;
+    msg.style.color = '#ef9a9a';
+  }
+}
+
+
+
+function cerrarModalEditarFolios() {
+  document.getElementById('modalEditarFolios').style.display = 'none';
+  registroEditandoDash = null;
+  cambiosSesionEdicion = [];
+}
+
+async function buscarFolioEdicion() {
+  const folio = document.getElementById('editFolioInput').value.trim().toUpperCase();
+  const error = document.getElementById('editFolioError');
+  if (!folio) { error.textContent = '⚠️ Escribe un folio.'; return; }
+
+  error.textContent = '⏳ Buscando...';
+
+  try {
+    const resp = await fetch(`/registros/buscar?termino=${encodeURIComponent(folio)}&tipo=folio&pagina=1&limite=1`);
+    const data = await resp.json();
+
+    if (data.total === 0 || data.registros.length === 0) {
+      error.textContent = `❌ El folio "${folio}" no existe.`;
+      document.getElementById('editRegistroInfo').style.display = 'none';
+      document.getElementById('editCampoSection').style.display = 'none';
+      return;
+    }
+
+    const registro = data.registros[0];
+    error.textContent = '';
+    registroEditandoDash = { ...registro };
+
+    const CAPTURISTA_NOMBRES_DASH2 = {
+      "P": "Pepe", "A": "Ángela", "Z": "Sofia",
+      "W": "Jesús", "S": "Susana", "K": "Eileen", "J": "Jessica"
+    };
+
+    document.getElementById('editInfoFolio').textContent = registro["Folio de continuidad"];
+    document.getElementById('editInfoCapturista').textContent = CAPTURISTA_NOMBRES_DASH2[registro["capturista"]] || registro["capturista"];
+    document.getElementById('editInfoUsuario').textContent = registro["Nombre del Usuario"];
+    document.getElementById('editInfoFecha').textContent = registro["Fecha de recepción de correo"];
+    document.getElementById('editRegistroInfo').style.display = 'block';
+    document.getElementById('editCampoSection').style.display = 'flex';
+    document.getElementById('editCampoSelector').value = '';
+    document.getElementById('editValorSection').style.display = 'none';
+
+  } catch(e) {
+    error.textContent = '❌ Error al buscar. Verifica la conexión.';
+  }
+}
+
+function mostrarEditorCampo() {
+  const campo = document.getElementById('editCampoSelector').value;
+  if (!campo || !registroEditandoDash) return;
+
+  const mapaValores = {
+    'fecha_aclaracion': registroEditandoDash["Fecha de aclaración sucursal"],
+    'nombre_usuario': registroEditandoDash["Nombre del Usuario"],
+    'sexo': registroEditandoDash["Sexo"],
+    'anio_nacimiento': registroEditandoDash["Año de nacimiento"],
+    'ref_sucursal': registroEditandoDash["Referencia de sucursal"],
+    'acuerdo': registroEditandoDash["Acuerdo"],
+    'num_tarjeta': registroEditandoDash["Número de tarjeta"],
+    'canal': registroEditandoDash["Canal"],
+    'motivo': registroEditandoDash["Motivo de reclamación"],
+    'banco': registroEditandoDash["Banco/establecimiento"],
+    'ref_cajero': registroEditandoDash["Referencia del cajero/establecimientio"],
+    'monto': registroEditandoDash["Monto"],
+    'fecha_movimiento': registroEditandoDash["Fecha del movimiento"],
+    'programa': registroEditandoDash["Nombre del programa"],
+    'celular': registroEditandoDash["N. CELULAR"],
+    'bloqueo': registroEditandoDash["Bloqueo de tarjeta"],
+    'num_tarjeta_transacciono': registroEditandoDash["N. DE TARJETA QUE TRANSACCIONÓ"]
+  };
+
+  document.getElementById('editValorActual').textContent = mapaValores[campo] ?? '—';
+
+  const container = document.getElementById('editNuevoValorContainer');
+  const estiloInput = 'width:100%; padding:7px; border-radius:6px; border:1px solid #1a5c38; background:#000; color:#fff; font-size:0.85rem;';
+
+  // Convertir fecha DD/MM/YYYY a YYYY-MM-DD para el date picker
+  const fechaAInput = (ddmmyyyy) => {
+    const p = (ddmmyyyy || '').split('/');
+    return p.length === 3 ? `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}` : '';
+  };
+
+  if (campo === 'sexo') {
+    container.innerHTML = `<select id="editNuevoValor" style="${estiloInput}"><option value="H">H</option><option value="M">M</option></select>`;
+    document.getElementById('editNuevoValor').value = mapaValores[campo] || 'H';
+  } else if (campo === 'canal') {
+    container.innerHTML = `<select id="editNuevoValor" style="${estiloInput}"><option value="206">206 — CAJEROS AUTOMATICOS</option><option value="207">207 — TERMINAL PUNTO DE VENTA</option><option value="208">208 — SUCURSALES</option></select>`;
+    document.getElementById('editNuevoValor').value = mapaValores[campo] || '206';
+  } else if (campo === 'motivo') {
+    container.innerHTML = `<select id="editNuevoValor" style="${estiloInput}"><option value="310">310 — NO ENTREGA CANTIDAD SOLICITADA</option><option value="301">301 — CARGO NO RECONOCIDO</option><option value="314">314 — RETIRO NO RECONOCIDO</option></select>`;
+    document.getElementById('editNuevoValor').value = mapaValores[campo] || '310';
+  } else if (campo === 'bloqueo') {
+    container.innerHTML = `<select id="editNuevoValor" style="${estiloInput}"><option value="NO">NO</option><option value="SI">SI</option></select>`;
+    document.getElementById('editNuevoValor').value = mapaValores[campo] || 'NO';
+  } else if (campo === 'programa') {
+    container.innerHTML = `<select id="editNuevoValor" style="${estiloInput}">
+      <option>ADULTOS MAYORES</option><option>APOYO A LA PRODUCCION</option>
+      <option>APOYO A LA VIVIENDA</option><option>BECAS</option>
+      <option>BIENESTAR PARA EL CAMPO</option><option>BIENPESCA</option>
+      <option>CONAPESCA</option><option>CONAVI</option><option>DISCAPACIDAD</option>
+      <option>JOVENES CONSTRUYENDO EL FUTURO</option><option>LA CLINICA ES NUESTRA</option>
+      <option>LA ESCUELA ES NUESTRA</option><option>MADRES TRABAJADORAS</option>
+      <option>MIGRANTES</option><option>MUJERES BIENESTAR</option>
+      <option>PRODUCCION PARA EL BIENESTAR</option><option>SADER</option>
+      <option>SALUD CASA POR CASA</option><option>SEMBRANDO VIDA</option>
+      <option>TRADICIONAL</option>
+    </select>`;
+    document.getElementById('editNuevoValor').value = mapaValores[campo] || 'TRADICIONAL';
+  } else if (campo === 'fecha_aclaracion' || campo === 'fecha_movimiento') {
+    container.innerHTML = `<input type="date" id="editNuevoValor" style="${estiloInput}" value="${fechaAInput(mapaValores[campo])}">`;
+  } else if (campo === 'monto') {
+    container.innerHTML = `<input type="number" id="editNuevoValor" step="0.01" style="${estiloInput}" value="${mapaValores[campo] || ''}">`;
+  } else {
+    container.innerHTML = `<input type="text" id="editNuevoValor" style="${estiloInput}; text-transform:uppercase;" value="${mapaValores[campo] || ''}">`;
+  }
+
+  document.getElementById('editValorSection').style.display = 'flex';
+}
+
+async function aplicarCambio() {
+  if (!registroEditandoDash) return;
+  const campo = document.getElementById('editCampoSelector').value;
+  const nuevoValorEl = document.getElementById('editNuevoValor');
+  if (!campo || !nuevoValorEl) return;
+
+  let nuevoValor = nuevoValorEl.value.trim();
+  const msg = document.getElementById('editMensaje');
+
+  // Formatear fechas de YYYY-MM-DD a DD/MM/YYYY
+  if (campo === 'fecha_aclaracion' || campo === 'fecha_movimiento') {
+    const p = nuevoValor.split('-');
+    if (p.length === 3) nuevoValor = `${p[2]}/${p[1]}/${p[0]}`;
+  }
+
+  if (!nuevoValor) { msg.textContent = '⚠️ El nuevo valor no puede estar vacío.'; msg.style.color = '#ef9a9a'; return; }
+
+  // Validaciones por campo
+  if (campo === 'acuerdo') {
+    if (!/^\d{10}$/.test(nuevoValor)) {
+      msg.textContent = '❌ El acuerdo debe ser exactamente 10 dígitos numéricos.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'anio_nacimiento') {
+    const anio = parseInt(nuevoValor);
+    const anioActual = new Date().getFullYear();
+    if (isNaN(anio) || anio < 1900 || anio > anioActual) {
+      msg.textContent = `❌ El año debe estar entre 1900 y ${anioActual}.`;
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'celular') {
+    if (nuevoValor !== '' && !/^\d{10}$/.test(nuevoValor)) {
+      msg.textContent = '❌ El celular debe ser exactamente 10 dígitos.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'num_tarjeta') {
+    const card1 = nuevoValor.slice(0, 4);
+    const card2 = nuevoValor.slice(4, 6);
+    const card3 = nuevoValor.slice(6);
+    if (!['5515','5261'].includes(card1)) {
+      msg.textContent = '❌ Los primeros 4 dígitos deben ser 5515 o 5261.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    if (!['07','92','96'].includes(card2)) {
+      msg.textContent = '❌ Los dígitos 5 y 6 deben ser 07, 92 o 96.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    if (!/^\d{10}$/.test(card3)) {
+      msg.textContent = '❌ Los últimos 10 dígitos deben ser numéricos.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    if (nuevoValor.length !== 16) {
+      msg.textContent = '❌ El número de tarjeta debe tener 16 dígitos.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'monto') {
+    const monto = parseFloat(nuevoValor);
+    if (isNaN(monto) || monto <= 0) {
+      msg.textContent = '❌ El monto debe ser mayor a 0.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    const canal = registroEditandoDash["Canal"];
+    if (canal === '206' && monto > 12000) {
+      msg.textContent = '❌ Monto máximo para cajero automático: $12,000.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    nuevoValor = monto.toString();
+  }
+
+  if (campo === 'fecha_aclaracion') {
+    const fecha = new Date(nuevoValor.split('/').reverse().join('-') + 'T12:00:00');
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    if (isNaN(fecha) || fecha > hoy) {
+      msg.textContent = '❌ La fecha de aclaración no puede ser mayor a hoy.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'fecha_movimiento') {
+    const fecha = new Date(nuevoValor.split('/').reverse().join('-') + 'T12:00:00');
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const dosAnios = new Date(hoy); dosAnios.setFullYear(hoy.getFullYear() - 2);
+    if (isNaN(fecha) || fecha > hoy) {
+      msg.textContent = '❌ La fecha del movimiento no puede ser mayor a hoy.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    if (fecha < dosAnios) {
+      msg.textContent = '❌ La fecha del movimiento no puede ser anterior a 2 años.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'ref_sucursal') {
+    if (!/^\d+$/.test(nuevoValor)) {
+      msg.textContent = '❌ La referencia de sucursal debe ser numérica.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+  }
+
+  if (campo === 'nombre_usuario') {
+    if (nuevoValor.trim().length < 2) {
+      msg.textContent = '❌ El nombre debe tener al menos 2 caracteres.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    nuevoValor = nuevoValor.toUpperCase();
+  }
+
+  if (campo === 'banco') {
+    if (nuevoValor.trim().length < 2) {
+      msg.textContent = '❌ El banco/establecimiento no puede estar vacío.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    nuevoValor = nuevoValor.toUpperCase();
+  }
+
+  if (campo === 'ref_cajero') {
+    if (nuevoValor.trim().length < 1) {
+      msg.textContent = '❌ La referencia no puede estar vacía.';
+      msg.style.color = '#ef9a9a'; return;
+    }
+    nuevoValor = nuevoValor.toUpperCase();
+  }
+
+  // Verificar duplicados si se edita acuerdo, monto o fecha de movimiento
+  if (campo === 'acuerdo' || campo === 'monto' || campo === 'fecha_movimiento') {
+    const acuerdoCheck = campo === 'acuerdo' ? nuevoValor : registroEditandoDash["Acuerdo"];
+    const montoCheck = campo === 'monto' ? nuevoValor : String(registroEditandoDash["Monto"]);
+    const fechaMovCheck = campo === 'fecha_movimiento' ? nuevoValor : registroEditandoDash["Fecha del movimiento"];
+    const folioActual = registroEditandoDash["Folio de continuidad"];
+
+    if (acuerdoCheck && montoCheck && fechaMovCheck) {
+      try {
+        const respDup = await fetch(`/registros/verificar-duplicado?acuerdo=${encodeURIComponent(acuerdoCheck)}&monto=${encodeURIComponent(montoCheck)}&fecha_movimiento=${encodeURIComponent(fechaMovCheck)}&folio_excluir=${encodeURIComponent(folioActual)}`);
+        const dupData = await respDup.json();
+        if (dupData.duplicado) {
+          const continuar = confirm(`⚠️ Riesgo de folio duplicado.\n\nLa captura actual posiblemente ya se encuentra registrada en el folio "${dupData.folio}".\n\n¿Desea aplicar el cambio de todas formas?`);
+          if (!continuar) {
+            msg.textContent = '⚠️ Cambio cancelado por posible duplicado.';
+            msg.style.color = '#ffd54f';
+            return;
+          }
+        }
+      } catch(e) {
+        console.error('Error verificando duplicado:', e);
+      }
+    }
+  }
+
+  const folio = registroEditandoDash["Folio de continuidad"];
+  const valorAnterior = document.getElementById('editValorActual').textContent;
+
+  try {
+    msg.textContent = '⏳ Aplicando cambio...';
+    msg.style.color = '#ffccd5';
+
+    const resp = await fetch(`/registros/${encodeURIComponent(folio)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campo, valor: nuevoValor })
+    });
+
+    if (!resp.ok) throw new Error('Error al guardar');
+    const data = await resp.json();
+
+    // Registrar en log
+    const cambioDetalle = {};
+    const nombreCampo = document.getElementById('editCampoSelector').options[document.getElementById('editCampoSelector').selectedIndex].text;
+    cambioDetalle[nombreCampo] = { antes: valorAnterior, despues: nuevoValor };
+
+    await fetch('/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        capturista: 'DASHBOARD',
+        accion: 'EDICION_DASHBOARD',
+        folio,
+        detalle: cambioDetalle
+      })
+    });
+
+    // Actualizar registro en memoria
+    const idx = registrosTodos.findIndex(r => r["Folio de continuidad"] === folio);
+    if (idx !== -1 && data.registro) registrosTodos[idx] = data.registro;
+
+    // Actualizar registroEditandoDash con el nuevo valor
+    if (data.registro) registroEditandoDash = { ...data.registro };
+
+    // Agregar al historial de sesión
+    cambiosSesionEdicion.push({ campo: nombreCampo, antes: valorAnterior, despues: nuevoValor });
+    const historialLista = document.getElementById('editHistorialLista');
+    const item = document.createElement('div');
+    item.style.cssText = 'background:#1a1a1a; border-radius:6px; padding:6px 10px; font-size:0.78rem; color:#fff;';
+    item.innerHTML = `<span style="color:#ffccd5;">${nombreCampo}:</span> <span style="color:#ef9a9a; text-decoration:line-through;">${valorAnterior}</span> → <span style="color:#a5d6a7;">${nuevoValor}</span>`;
+    historialLista.appendChild(item);
+    document.getElementById('editHistorialSection').style.display = 'block';
+
+    actualizarDashboard();
+    msg.textContent = '✅ Cambio aplicado correctamente.';
+    msg.style.color = '#a5d6a7';
+
+    // Resetear selector para otro cambio
+    document.getElementById('editCampoSelector').value = '';
+    document.getElementById('editValorSection').style.display = 'none';
+
+  } catch(e) {
+    msg.textContent = '❌ Error al aplicar el cambio.';
+    msg.style.color = '#ef9a9a';
+  }
+}
+
+
+// Flatpickr — calendario de rango
+let flatpickrInstance = null;
+
+function iniciarCalendario() {
+  flatpickrInstance = flatpickr('#rangoCalendario', {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    locale: 'es',
+    allowInput: false,
+    disableMobile: true,
+    theme: 'dark',
+    onChange: function(selectedDates) {
+      if (selectedDates.length === 1) {
+        // Un solo día seleccionado
+        document.getElementById('rangoDesde').value = flatpickrInstance.formatDate(selectedDates[0], 'Y-m-d');
+        document.getElementById('rangoHasta').value = flatpickrInstance.formatDate(selectedDates[0], 'Y-m-d');
+      } else if (selectedDates.length === 2) {
+        // Rango seleccionado
+        document.getElementById('rangoDesde').value = flatpickrInstance.formatDate(selectedDates[0], 'Y-m-d');
+        document.getElementById('rangoHasta').value = flatpickrInstance.formatDate(selectedDates[1], 'Y-m-d');
+      }
+    }
+  });
+}
+
+flatpickr('#bloqueosFecha', {
+  dateFormat: 'd/m/Y',
+  locale: 'es',
+  defaultDate: new Date()
+});
+
+flatpickr('#dciFecha', {
+  dateFormat: 'd/m/Y',
+  locale: 'es',
+  defaultDate: new Date()
+});
+
+flatpickr('#concentradoFecha', {
+  dateFormat: 'd/m/Y',
+  locale: 'es',
+  defaultDate: new Date()
+});
+
+
+function actualizarFechaHeader() {
+  const el = document.getElementById('fechaActualHeader');
+  if (!el) return;
+  const ahora = new Date();
+  const opciones = { weekday:'long', day:'numeric', month:'long', year:'numeric' };
+  const texto = ahora.toLocaleDateString('es-MX', opciones);
+  el.textContent = texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+actualizarFechaHeader();
+setInterval(actualizarFechaHeader, 60000);
+
+
+
+function toggleTema() {
+  const esClaro = document.body.classList.toggle('tema-claro');
+  const btn = document.getElementById('btnTema');
+  btn.textContent = esClaro ? '🌑 Modo oscuro' : '🌙 Modo claro';
+  localStorage.setItem('tema_dashboard', esClaro ? 'claro' : 'oscuro');
+  if (typeof _ultimasStats !== 'undefined' && _ultimasStats) {
+    actualizarGraficasConStats(_ultimasStats);
+  }
+  if (typeof cargarTendencia === 'function') cargarTendencia();
+}
+
+// Aplicar tema guardado al cargar
+const temaGuardado = localStorage.getItem('tema_dashboard');
+if (temaGuardado === 'claro') {
+  document.body.classList.add('tema-claro');
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('btnTema');
+    if (btn) btn.textContent = '🌑 Modo oscuro';
+  });
+}
+
+
+let tablaExpandida = false;
+
+function toggleExpandirTabla() {
+  tablaExpandida = !tablaExpandida;
+  const btn = document.getElementById('btnExpandirTabla');
+  const dashboard = document.querySelector('.dashboard');
+  const seccionTabla = document.querySelector('.seccion-tabla');
+
+  if (tablaExpandida) {
+    // Guardar grid actual y expandir
+    dashboard.style.gridTemplateRows = '0 0 0 1fr';
+    document.querySelectorAll('.dashboard > *:not(.seccion-tabla)').forEach(el => {
+      el.style.overflow = 'hidden';
+      el.style.opacity = '0';
+      el.style.pointerEvents = 'none';
+    });
+    btn.textContent = '✕ Contraer';
+    btn.style.background = '#7a1a35';
+  } else {
+    dashboard.style.gridTemplateRows = '';
+    document.querySelectorAll('.dashboard > *:not(.seccion-tabla)').forEach(el => {
+      el.style.overflow = '';
+      el.style.opacity = '';
+      el.style.pointerEvents = '';
+    });
+    btn.textContent = '⛶ Expandir';
+    btn.style.background = '#333';
+  }
+}
+
+
+
+
+let vistaGraficaActual = 1;
+let chartTendencia = null;
+let chartExpandido = null;
+
+function cambiarVistaGrafica(vista) {
+  vistaGraficaActual = vista;
+  document.getElementById('vistaGrafica1').style.display = vista === 1 ? 'flex' : 'none';
+  document.getElementById('vistaGrafica2').style.display = vista === 2 ? 'flex' : 'none';
+  document.getElementById('puntoDist1').style.background = vista === 1 ? '#7a1a35' : '#333';
+  document.getElementById('puntoDist2').style.background = vista === 2 ? '#7a1a35' : '#333';
+  if (vista === 2 && _ultimasStats) actualizarGraficaTendencia();
+}
+
+async function actualizarGraficaTendencia() {
+  try {
+    const hoy = new Date();
+    const hace30 = new Date(hoy);
+    hace30.setDate(hoy.getDate() - 29);
+    const desde = hace30.toISOString().slice(0, 10);
+    const hasta = hoy.toISOString().slice(0, 10);
+
+    const resp = await fetch(`/registros/stats-tendencia?desde=${desde}&hasta=${hasta}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    const modoClaro = document.body.classList.contains('tema-claro');
+    const colorTexto = modoClaro ? '#333333' : '#eceff1';
+    const colorGrid = modoClaro ? '#c8a0b0' : '#4a0e1f';
+
+    if (chartTendencia) chartTendencia.destroy();
+    const canvasTendencia = document.getElementById('graficaTendencia');
+    chartTendencia = new Chart(canvasTendencia, {
+      type: 'line',
+      data: {
+        labels: data.filter(d => {
+          const p = d.fecha.split('/');
+          const dia = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0])).getDay();
+          return dia !== 0 && dia !== 6;
+        }).map(d => {
+          const p = d.fecha.split('/');
+          return `${p[0]}/${p[1]}/${p[2].slice(2)}`;
+        }),
+        datasets: [{
+          label: 'Capturas',
+          data: data.filter(d => {
+            const p = d.fecha.split('/');
+            const dia = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0])).getDay();
+            return dia !== 0 && dia !== 6;
+          }).map(d => d.total),
+          borderColor: '#f9a8b8',
+          backgroundColor: 'rgba(249,168,184,0.15)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#f9a8b8',
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Capturas diarias — últimos 30 días', color: colorTexto, font: { size: 11 } }
+        },
+        scales: {
+          x: { ticks: { color: colorTexto, font: { size: 7 }, maxRotation: 60, autoSkip: false }, grid: { color: colorGrid }, border: { color: colorGrid } },
+          y: { ticks: { color: colorTexto, font: { size: 9 } }, grid: { color: colorGrid }, border: { color: colorGrid }, beginAtZero: true }
+        }
+      }
+    });
+  canvasTendencia.style.backgroundColor = modoClaro ? '#ffffff' : '#000000';
+  } catch(e) {
+    console.error('Error cargando tendencia:', e);
+  }
+}
+
+function expandirGrafica(canvasId, titulo) {
+  const modoClaro = document.body.classList.contains('tema-claro');
+  const colorTexto = modoClaro ? '#333333' : '#eceff1';
+  const colorGrid = modoClaro ? '#c8a0b0' : '#4a0e1f';
+
+  document.getElementById('tituloGraficaExpandida').textContent = titulo;
+  document.getElementById('tituloGraficaExpandida').style.color = colorTexto;
+  document.getElementById('modalGraficaExpandida').classList.add('visible');
+
+  if (chartExpandido) chartExpandido.destroy();
+
+  const chartMap = {
+    'graficaCanal': chartCanal,
+    'graficaMotivo': chartMotivo,
+    'graficaPrograma': chartPrograma,
+    'graficaTendencia': chartTendencia
+  };
+
+  const original = chartMap[canvasId];
+  if (!original) return;
+
+  const canvas = document.getElementById('canvasExpandido');
+  const esDonut = original.config.type === 'doughnut';
+  const dataOriginal = JSON.parse(JSON.stringify(original.config.data));
+  const optsOriginal = JSON.parse(JSON.stringify(original.config.options));
+
+  // Fuentes más grandes
+  if (optsOriginal.plugins?.legend?.labels) {
+    optsOriginal.plugins.legend.labels.font = { size: 14 };
+    optsOriginal.plugins.legend.labels.color = colorTexto;
+  }
+  if (optsOriginal.plugins?.title) {
+    optsOriginal.plugins.title.display = false;
+  }
+  if (optsOriginal.scales) {
+    ['x','y'].forEach(eje => {
+      if (optsOriginal.scales[eje]?.ticks) {
+        optsOriginal.scales[eje].ticks.font = { size: 13 };
+        optsOriginal.scales[eje].ticks.color = colorTexto;
+        optsOriginal.scales[eje].ticks.maxRotation = 0;
+        optsOriginal.scales[eje].ticks.minRotation = 0;
+        optsOriginal.scales[eje].ticks.autoSkip = false;
+        delete optsOriginal.scales[eje].ticks.callback;
+      }
+      if (optsOriginal.scales[eje]?.grid) {
+        optsOriginal.scales[eje].grid.color = colorGrid;
+      }
+    });
+  }
+  if (esDonut) {
+    optsOriginal.plugins.legend = optsOriginal.plugins.legend || {};
+    optsOriginal.plugins.legend.position = 'right';
+    optsOriginal.plugins.legend.labels = { font: { size: 13 }, color: colorTexto };
+    optsOriginal.plugins.tooltip = {
+      callbacks: {
+        label: ctx => {
+          const total = dataOriginal.datasets[0].data.reduce((a,b) => a+b, 0);
+          const pct = ((ctx.parsed / total) * 100).toFixed(1);
+          return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+        }
+      }
+    };
+  }
+  // Forzar labels completos en el eje X
+  if (!esDonut && optsOriginal.scales?.x) {
+    optsOriginal.scales.x.ticks = optsOriginal.scales.x.ticks || {};
+    optsOriginal.scales.x.ticks.callback = function(val) {
+      return this.getLabelForValue(val);
+    };
+  }
+  if (!esDonut && dataOriginal.labels) {
+    dataOriginal.labels = dataOriginal.labels.map(label => {
+      if (typeof label === 'string' && label.length > 16) {
+        const palabras = label.split(' ');
+        if (palabras.length === 1) {
+          const mitad = Math.ceil(label.length / 2);
+          return [label.slice(0, mitad), label.slice(mitad)];
+        }
+        let mejorCorte = 1;
+        let mejorDif = Infinity;
+        for (let k = 1; k < palabras.length; k++) {
+          const linea1 = palabras.slice(0, k).join(' ');
+          const linea2 = palabras.slice(k).join(' ');
+          const dif = Math.abs(linea1.length - linea2.length);
+          if (dif < mejorDif) { mejorDif = dif; mejorCorte = k; }
+        }
+        return [
+          palabras.slice(0, mejorCorte).join(' '),
+          palabras.slice(mejorCorte).join(' ')
+        ];
+      }
+      return label;
+    });
+  }
+  chartExpandido = new Chart(canvas, {
+    type: original.config.type,
+    data: dataOriginal,
+    options: { ...optsOriginal, responsive: true, maintainAspectRatio: false,
+      layout: esDonut ? { padding: { top: 30, bottom: 30, left: 50, right: 50 } } : (optsOriginal.layout || {}) },
+    plugins: esDonut ? [{
+      id: 'etiquetasLineas',
+      afterDraw(chart) {
+        const { ctx, chartArea: { top, left, width, height } } = chart;
+        const cx = left + width / 2;
+        const cy = top + height / 2;
+        const meta = chart.getDatasetMeta(0);
+        const total = chart.data.datasets[0].data.reduce((a,b) => a+b, 0);
+        ctx.save();
+        chart.data.datasets[0].data.forEach((val, i) => {
+          if (!val) return;
+          const arc = meta.data[i];
+          if (!arc) return;
+          const mid = arc.startAngle + (arc.endAngle - arc.startAngle) / 2;
+          const pct = ((val / total) * 100).toFixed(1);
+          if (parseFloat(pct) < 0) return;
+          const radioExterior = arc.outerRadius;
+          const x1 = cx + radioExterior * Math.cos(mid);
+          const y1 = cy + radioExterior * Math.sin(mid);
+          const x2 = cx + (radioExterior + 16) * Math.cos(mid);
+          const y2 = cy + (radioExterior + 16) * Math.sin(mid);
+          const izq = Math.cos(mid) < 0;
+          const x3 = x2 + (izq ? -10 : 10);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineTo(x3, y2);
+          ctx.strokeStyle = modoClaro ? '#555' : '#ccc';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.fillStyle = colorTexto;
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = izq ? 'right' : 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${pct}%`, x3 + (izq ? -4 : 4), y2);
+        });
+        ctx.restore();
+      }
+    }] : []
+  });
+}
+
+function cerrarGraficaExpandida() {
+  document.getElementById('modalGraficaExpandida').classList.remove('visible');
+  if (chartExpandido) { chartExpandido.destroy(); chartExpandido = null; }
+}
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  verificarAccesoDashboard();
+  iniciarCalendario();
+});
+
+// Actualizar estado de conexión cada 10 segundos
+setInterval(async () => {
+  await cargarCapturistasActivos();
+  if (modoActual === 'hoy') {
+    await actualizarStats('hoy');
+  } else if (modoActual === 'historico') {
+    await actualizarStats('historico');
+  } else if (modoActual === 'rango') {
+    const desde = document.getElementById('rangoDesde').value;
+    const hasta = document.getElementById('rangoHasta').value;
+    if (desde && hasta) await actualizarStats('rango', desde, hasta);
+  }
+}, 10000);
+
+</script>
+
+<!-- Modal histórico por fechas -->
+<div id="modalHistorico" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:30px; min-width:340px; text-align:center;">
+    <h3 style="color:#ffffff; margin-bottom:20px; font-size:1.1rem;">📅 Exportar histórico</h3>
+    <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+      <label style="color:#ffccd5; font-size:0.85rem; text-align:left;">
+        Desde:
+        <input type="date" id="fechaDesde" style="width:100%; margin-top:4px; padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.9rem;">
+      </label>
+      <label style="color:#ffccd5; font-size:0.85rem; text-align:left;">
+        Hasta:
+        <input type="date" id="fechaHasta" style="width:100%; margin-top:4px; padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.9rem;">
+      </label>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button onclick="exportarHistoricoRango()" style="background:#7a1a35; color:#ffffff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">⬇ Descargar por rango</button>
+      <button onclick="exportarTodoElHistorico()" style="background:#1a3a7a; color:#ffffff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">⬇ Descargar todo</button>
+      <button onclick="cerrarModalHistorico()" style="background:#333333; color:#ffffff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">Cancelar</button>
+    </div>
+    <p id="modalMensaje" style="color:#f9a8b8; font-size:0.8rem; margin-top:12px; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<!-- Modal eliminar -->
+<div id="modalEliminar" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:30px; min-width:380px; text-align:center;">
+    <h3 style="color:#ffffff; margin-bottom:8px; font-size:1.1rem;">🗑 Eliminar registros</h3>
+    <p style="color:#f9a8b8; font-size:0.8rem; margin-bottom:16px;">⚠️ Esta acción es permanente y no se puede deshacer.</p>
+
+    <!-- Tabs -->
+    <div style="display:flex; gap:6px; justify-content:center; margin-bottom:16px;">
+      <button id="tabFechas" onclick="cambiarTab('fechas')" style="background:#7a1a35; color:#ffffff; border:none; border-radius:6px; padding:7px 16px; cursor:pointer; font-weight:600; font-size:0.82rem;">📅 Por rango de fechas</button>
+      <button id="tabFolio" onclick="cambiarTab('folio')" style="background:#333333; color:#ffffff; border:none; border-radius:6px; padding:7px 16px; cursor:pointer; font-weight:600; font-size:0.82rem;">🔎 Por folio</button>
+    </div>
+
+    <!-- Panel fechas -->
+    <div id="panelFechas" style="display:flex; flex-direction:column; gap:12px; margin-bottom:16px;">
+      <label style="color:#ffccd5; font-size:0.85rem; text-align:left;">
+        Desde:
+        <input type="date" id="eliminarDesde" style="width:100%; margin-top:4px; padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.9rem;">
+      </label>
+      <label style="color:#ffccd5; font-size:0.85rem; text-align:left;">
+        Hasta:
+        <input type="date" id="eliminarHasta" style="width:100%; margin-top:4px; padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.9rem;">
+      </label>
+    </div>
+
+    <!-- Panel folio -->
+    <div id="panelFolio" style="display:none; flex-direction:column; gap:12px; margin-bottom:16px;">
+      <label style="color:#ffccd5; font-size:0.85rem; text-align:left;">
+        Folio a eliminar:
+        <input type="text" id="eliminarFolio" style="width:100%; margin-top:4px; padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.9rem; text-transform:uppercase;" placeholder="Ej: P23032026_1">
+      </label>
+    </div>
+
+    <!-- Contraseña (siempre visible) -->
+    <div style="margin-bottom:16px;">
+      <label style="color:#ffccd5; font-size:0.85rem; text-align:left; display:block;">
+        Contraseña de administrador:
+        <input type="password" id="eliminarPassword" style="width:100%; margin-top:4px; padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000000; color:#ffffff; font-size:0.9rem;" placeholder="Contraseña">
+      </label>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <button onclick="eliminarSegunTab()" style="background:#7a1a35; color:#ffffff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">🗑 Eliminar</button>
+      <button onclick="eliminarTodo()" style="background:#5a0a0a; color:#ffffff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">⚠️ Eliminar TODO</button>
+      <button onclick="cerrarModalEliminar()" style="background:#333333; color:#ffffff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">Cancelar</button>
+    </div>
+    <p id="modalEliminarMensaje" style="color:#f9a8b8; font-size:0.8rem; margin-top:12px; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<!-- Modal Log de Actividad -->
+<div id="modalLog" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:24px; width:90vw; max-width:900px; max-height:85vh; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1.1rem;">📋 Log de Actividad</h3>
+      <button onclick="exportarLogExcel()" style="background:#217346; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer; font-weight:600; transition: background 0.2s, transform 0.1s;" onmouseover="this.style.background='#1a5c38'" onmouseout="this.style.background='#217346'" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform='scale(1)'">⬇ Excel</button>
+<button onclick="cerrarModalLog()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <!-- Filtros -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <input type="date" id="logDesde" style="padding:6px 10px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.82rem;">
+      <input type="date" id="logHasta" style="padding:6px 10px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.82rem;">
+      <select id="logCapturista" style="padding:6px 10px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.82rem;">
+        <option value="">Todos los capturistas</option>
+        <option value="P">Pepe</option>
+        <option value="A">Ángela</option>
+        <option value="Z">Sofia</option>
+        <option value="W">Jesús</option>
+        <option value="S">Susana</option>
+        <option value="K">Eileen</option>
+        <option value="J">Jessica</option>
+      </select>
+      <select id="logAccion" style="padding:6px 10px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.82rem;">
+        <option value="">Todas las acciones</option>
+        <option value="CAPTURA">Captura</option>
+        <option value="EDICION">Edición capturista</option>
+        <option value="ELIMINACION">Eliminación</option>
+        <option value="EDICION_DASHBOARD">Edición dashboard</option>
+        <option value="EDICION_MASIVA">Edición masiva</option>
+      </select>
+      <button onclick="filtrarLog()" style="background:#7a1a35; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer; font-size:0.82rem;">Filtrar</button>
+      <button onclick="limpiarFiltrosLog()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer; font-size:0.82rem;">Limpiar</button>
+      <span id="logTotal" style="color:#ffccd5; font-size:0.8rem; margin-left:auto;"></span>
+    </div>
+    <!-- Tabla -->
+    <div style="overflow-y:auto; flex:1;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+        <thead>
+          <tr style="background:#1a1a1a; position:sticky; top:0;">
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Fecha y hora</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Capturista</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Acción</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Folio</th>
+          </tr>
+        </thead>
+        <tbody id="logTablaBody"></tbody>
+      </table>
+    </div>
+    <p id="logMensaje" style="color:#f9a8b8; font-size:0.8rem; min-height:16px; text-align:center;"></p>
+  </div>
+</div>
+
+<!-- Modal contraseña Log -->
+<div id="modalLogPassword" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:10000; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:30px; min-width:320px; text-align:center;">
+    <h3 style="color:#ffffff; margin-bottom:16px; font-size:1.1rem;">🔒 Acceso al dashboard</h3>
+    <input type="password" id="inputPasswordLog" placeholder="Contraseña de administrador" style="width:100%; padding:10px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.95rem; margin-bottom:12px; outline:none;">
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button id="btnConfirmarPasswordLog" style="background:#1a3a7a; color:#fff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">Confirmar</button>
+      <button id="btnCancelarPasswordLog" style="background:#333; color:#fff; border:none; border-radius:6px; padding:10px 20px; cursor:pointer; font-weight:600;">Cancelar</button>
+    </div>
+    <p id="modalLogPasswordError" style="color:#f9a8b8; font-size:0.82rem; margin-top:10px; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<!-- Modal Reporte Capturistas -->
+<div id="modalReporte" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #1a5c38; border-radius:12px; padding:28px; width:420px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1.1rem;">📊 Reporte Capturistas</h3>
+      <button onclick="cerrarModalReporte()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖</button>
+    </div>
+
+    <!-- Selector tipo -->
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <label style="color:#ffccd5; font-size:0.85rem;">Tipo de reporte:</label>
+      <select id="reporteTipo" onchange="actualizarSelectorFecha()" style="padding:8px; border-radius:6px; border:1px solid #1a5c38; background:#000; color:#fff; font-size:0.9rem;">
+        <option value="diario">📅 Diario</option>
+        <option value="semanal" selected>📆 Semanal</option>
+        <option value="mensual">🗓️ Mensual</option>
+        <option value="anual">📅 Anual</option>
+      </select>
+    </div>
+
+    <!-- Selector fecha dinámico -->
+    <div id="reporteSelectorFecha" style="display:flex; flex-direction:column; gap:6px;">
+      <label id="reporteFechaLabel" style="color:#ffccd5; font-size:0.85rem;">Selecciona una fecha de la semana:</label>
+      <input type="date" id="reporteFecha" style="padding:8px; border-radius:6px; border:1px solid #1a5c38; background:#000; color:#fff; font-size:0.9rem;">
+      <input type="month" id="reporteMes" style="display:none; padding:8px; border-radius:6px; border:1px solid #1a5c38; background:#000; color:#fff; font-size:0.9rem;">
+      <select id="reporteAnio" style="display:none; padding:8px; border-radius:6px; border:1px solid #1a5c38; background:#000; color:#fff; font-size:0.9rem;"></select>
+    </div>
+
+    <!-- Botones descarga -->
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+      <button onclick="descargarReporte('excel')" style="background:#217346; color:#fff; border:none; border-radius:6px; padding:12px; cursor:pointer; font-weight:600; font-size:0.95rem; transition:background 0.2s;" onmouseover="this.style.background='#1a5c38'" onmouseout="this.style.background='#217346'">⬇ Descargar Excel</button>
+      <button onclick="descargarReporte('pdf')" style="background:#c0392b; color:#fff; border:none; border-radius:6px; padding:12px; cursor:pointer; font-weight:600; font-size:0.95rem; transition:background 0.2s;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">⬇ Descargar PDF</button>
+      <button onclick="descargarReporte('word')" style="background:#1a3a7a; color:#fff; border:none; border-radius:6px; padding:12px; cursor:pointer; font-weight:600; font-size:0.95rem; transition:background 0.2s;" onmouseover="this.style.background='#152d5e'" onmouseout="this.style.background='#1a3a7a'">⬇ Descargar Word</button>
+    </div>
+    <p id="reporteMensaje" style="color:#a5d6a7; font-size:0.82rem; text-align:center; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<!-- Modal Editar Folios -->
+<div id="modalEditarFolios" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:24px; width:90vw; max-width:600px; max-height:90vh; display:flex; flex-direction:column; gap:14px; overflow-y:auto;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1.1rem;">✏️ Editar Folios</h3>
+      <button onclick="cerrarModalEditarFolios()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <!-- Tabs de modo -->
+    <div style="display:flex; gap:8px; border-bottom:1px solid #7a1a35; padding-bottom:10px;">
+      <button id="tabIndividual" onclick="cambiarTabEdicion('individual')" style="background:#7a1a35; color:#fff; border:none; border-radius:6px; padding:6px 16px; cursor:pointer; font-size:0.82rem; font-weight:600;">📄 Individual</button>
+      <button id="tabMasiva" onclick="cambiarTabEdicion('masiva')" style="background:#333; color:#aaa; border:none; border-radius:6px; padding:6px 16px; cursor:pointer; font-size:0.82rem; font-weight:600;">⚡ Edición masiva</button>
+    </div>
+    <!-- Buscar folio -->
+    <div style="display:flex; gap:8px; align-items:flex-end;">
+      <label style="color:#ffccd5; font-size:0.85rem; flex:1; display:flex; flex-direction:column; gap:4px;">
+        Folio a editar:
+        <input type="text" id="editFolioInput" placeholder="Ej: P23042026_1" style="padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.9rem; text-transform:uppercase;" onkeydown="if(event.key==='Enter') buscarFolioEdicion()">
+      </label>
+      <button onclick="buscarFolioEdicion()" style="background:#7a1a35; color:#fff; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; font-weight:600; white-space:nowrap;">🔍 Buscar</button>
+    </div>
+    <p id="editFolioError" style="color:#ef9a9a; font-size:0.82rem; min-height:16px;"></p>
+
+    <!-- Info del registro encontrado -->
+    <div id="editRegistroInfo" style="display:none; background:#1a0a10; border:1px solid #7a1a35; border-radius:8px; padding:12px; font-size:0.82rem; color:#ffccd5;">
+      <p><strong style="color:#fff;">Folio:</strong> <span id="editInfoFolio"></span></p>
+      <p><strong style="color:#fff;">Capturista:</strong> <span id="editInfoCapturista"></span></p>
+      <p><strong style="color:#fff;">Usuario:</strong> <span id="editInfoUsuario"></span></p>
+      <p><strong style="color:#fff;">Fecha recepción:</strong> <span id="editInfoFecha"></span></p>
+    </div>
+
+    <!-- Selector de campo -->
+    <div id="editCampoSection" style="display:none; flex-direction:column; gap:10px;">
+      <label style="color:#ffccd5; font-size:0.85rem; display:flex; flex-direction:column; gap:4px;">
+        Campo a editar:
+        <select id="editCampoSelector" onchange="mostrarEditorCampo()" style="padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.85rem;">
+          <option value="">Selecciona un campo...</option>
+          <option value="fecha_aclaracion">Fecha aclaración sucursal</option>
+          <option value="nombre_usuario">Nombre del Usuario</option>
+          <option value="sexo">Sexo</option>
+          <option value="anio_nacimiento">Año de nacimiento</option>
+          <option value="ref_sucursal">Referencia de sucursal</option>
+          <option value="acuerdo">Acuerdo</option>
+          <option value="num_tarjeta">Número de tarjeta</option>
+          <option value="canal">Canal</option>
+          <option value="motivo">Motivo</option>
+          <option value="banco">Banco/establecimiento</option>
+          <option value="ref_cajero">Referencia cajero/establecimiento</option>
+          <option value="monto">Monto</option>
+          <option value="fecha_movimiento">Fecha del movimiento</option>
+          <option value="programa">Nombre del programa</option>
+          <option value="celular">N. Celular</option>
+          <option value="bloqueo">Bloqueo de tarjeta</option>
+          <option value="num_tarjeta_transacciono">N. de tarjeta que transaccionó</option>
+        </select>
+      </label>
+
+      <!-- Editor del campo -->
+      <div id="editValorSection" style="display:none; background:#0a0a0a; border:1px solid #333; border-radius:8px; padding:14px; flex-direction:column; gap:10px;">
+        <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+          <div style="flex:1;">
+            <p style="color:#aaaaaa; font-size:0.78rem; margin-bottom:4px;">Valor actual:</p>
+            <p id="editValorActual" style="color:#ffd54f; font-size:0.9rem; font-weight:600; word-break:break-all;"></p>
+          </div>
+          <div style="color:#ffffff; font-size:1.2rem;">→</div>
+          <div style="flex:1;">
+            <p style="color:#aaaaaa; font-size:0.78rem; margin-bottom:4px;">Nuevo valor:</p>
+            <div id="editNuevoValorContainer"></div>
+          </div>
+        </div>
+        <button onclick="aplicarCambio()" style="background:#1a5c38; color:#fff; border:none; border-radius:6px; padding:8px 20px; cursor:pointer; font-weight:600; align-self:flex-end;">✅ Aplicar cambio</button>
+      </div>
+    </div>
+
+    <!-- Historial de cambios de esta sesión -->
+    <div id="editHistorialSection" style="display:none;">
+      <p style="color:#ffccd5; font-size:0.82rem; font-weight:600; margin-bottom:6px;">Cambios aplicados en esta sesión:</p>
+      <div id="editHistorialLista" style="display:flex; flex-direction:column; gap:4px; max-height:150px; overflow-y:auto;"></div>
+    </div>
+    <!-- SECCIÓN EDICIÓN MASIVA -->
+    <div id="seccionMasiva" style="display:none; flex-direction:column; gap:12px;">
+
+      <p style="color:#ffccd5; font-size:0.8rem; margin:0;">Busca todos los registros que tengan un valor incorrecto en común y corrígelos en un solo paso.</p>
+
+      <label style="color:#ffccd5; font-size:0.85rem; display:flex; flex-direction:column; gap:4px;">
+        Campo a corregir:
+        <select id="masivaCampo" onchange="masivaCampoChange()" style="padding:8px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.85rem;">
+          <option value="">Selecciona un campo...</option>
+          <option value="acuerdo">Acuerdo</option>
+          <option value="nombre_usuario">Nombre del Usuario</option>
+          <option value="num_tarjeta">Número de tarjeta</option>
+          <option value="ref_sucursal">Referencia de sucursal</option>
+          <option value="banco">Banco/establecimiento</option>
+          <option value="ref_cajero">Referencia cajero/establecimiento</option>
+          <option value="programa">Nombre del programa</option>
+          <option value="celular">N. Celular</option>
+          <option value="anio_nacimiento">Año de nacimiento</option>
+          <option value="canal">Canal</option>
+          <option value="motivo">Motivo</option>
+          <option value="bloqueo">Bloqueo de tarjeta</option>
+          <option value="num_tarjeta_transacciono">N. de tarjeta que transaccionó</option>
+          <option value="monto">Monto</option>
+          <option value="fecha_aclaracion">Fecha aclaración sucursal</option>
+          <option value="fecha_movimiento">Fecha del movimiento</option>
+        </select>
+      </label>
+
+      <div id="masivaBuscarSection" style="display:none; flex-direction:column; gap:10px;">
+        <label style="color:#ffccd5; font-size:0.85rem; display:flex; flex-direction:column; gap:4px;">
+          Valor incorrecto (el que tienen actualmente):
+          <div id="masivaBuscarContainer"></div>
+        </label>
+
+        <button onclick="masivaBuscarAfectados()" style="background:#7a1a35; color:#fff; border:none; border-radius:6px; padding:8px 16px; cursor:pointer; font-weight:600; align-self:flex-start;">🔍 Buscar registros afectados</button>
+      </div>
+
+      <!-- Resultado de la búsqueda -->
+      <div id="masivaResultadoSection" style="display:none; flex-direction:column; gap:10px;">
+        <div id="masivaFoliosEncontrados" style="background:#1a0a10; border:1px solid #7a1a35; border-radius:8px; padding:10px; font-size:0.8rem; color:#ffccd5; max-height:120px; overflow-y:auto;"></div>
+
+        <label style="color:#ffccd5; font-size:0.85rem; display:flex; flex-direction:column; gap:4px;">
+          Valor correcto (el que debe quedar):
+          <div id="masivaNuevoContainer"></div>
+        </label>
+
+        <button onclick="masivaAplicar()" style="background:#1a5c38; color:#fff; border:none; border-radius:6px; padding:8px 20px; cursor:pointer; font-weight:600; align-self:flex-end;">✅ Aplicar a todos</button>
+      </div>
+
+      <p id="masivaMensaje" style="color:#a5d6a7; font-size:0.82rem; text-align:center; min-height:16px;"></p>
+    </div>
+    <p id="editMensaje" style="color:#a5d6a7; font-size:0.82rem; text-align:center; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<!-- Modal Importar Histórico -->
+<div id="modalImportar" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #1a3a7a; border-radius:12px; padding:24px; width:90vw; max-width:600px; max-height:90vh; display:flex; flex-direction:column; gap:14px; overflow-y:auto;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1.1rem;">⬆ Importar Histórico Excel</h3>
+      <button onclick="cerrarModalImportar()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+
+    <p style="color:#ffccd5; font-size:0.82rem;">Selecciona un archivo Excel con registros históricos. Los folios que ya existan en la base de datos no se duplicarán.</p>
+
+    <!-- Selector de archivo -->
+    <label style="color:#ffccd5; font-size:0.85rem; display:flex; flex-direction:column; gap:6px;">
+      Archivo Excel (.xlsx):
+      <input type="file" id="importarArchivo" accept=".xlsx" style="padding:8px; border-radius:6px; border:1px solid #1a3a7a; background:#000; color:#fff; font-size:0.85rem; cursor:pointer;">
+    </label>
+
+    <!-- Info del archivo -->
+    <div id="importarInfo" style="display:none; background:#0a0a1a; border:1px solid #1a3a7a; border-radius:8px; padding:12px; font-size:0.82rem; color:#ffccd5;">
+      <p>📄 <strong style="color:#fff;">Archivo:</strong> <span id="importarNombreArchivo"></span></p>
+      <p>📊 <strong style="color:#fff;">Registros detectados:</strong> <span id="importarTotalDetectado"></span></p>
+      <p>🔍 <strong style="color:#fff;">Columnas detectadas:</strong> <span id="importarColumnas"></span></p>
+    </div>
+
+    <!-- Mapeo de columnas -->
+    <div id="importarMapeoSection" style="display:none; background:#0a0a0a; border:1px solid #333; border-radius:8px; padding:12px; font-size:0.82rem;">
+      <p style="color:#ffd54f; font-weight:600; margin-bottom:8px;">⚠️ Verifica el mapeo de columnas antes de importar:</p>
+      <div id="importarMapeoLista" style="display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto;"></div>
+    </div>
+
+    <!-- Botón importar -->
+    <button id="btnImportar" onclick="ejecutarImportacion()" style="display:none; background:#1a3a7a; color:#fff; border:none; border-radius:6px; padding:12px; cursor:pointer; font-weight:600; font-size:0.95rem;">⬆ Importar registros</button>
+
+    <!-- Progreso -->
+    <div id="importarProgreso" style="display:none; flex-direction:column; gap:8px;">
+      <div style="background:#1a1a1a; border-radius:6px; height:12px; overflow:hidden;">
+        <div id="importarBarraProgreso" style="background:#1a3a7a; height:100%; width:0%; transition:width 0.3s;"></div>
+      </div>
+      <p id="importarProgresoTexto" style="color:#ffccd5; font-size:0.82rem; text-align:center;"></p>
+    </div>
+
+    <p id="importarMensaje" style="font-size:0.85rem; text-align:center; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<!-- Modal Programas completo -->
+<div id="modalProgramas" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:24px; width:90vw; max-width:500px; max-height:80vh; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+      <h3 style="color:#ffffff; font-size:1rem;">📋 Distribución por programa social</h3>
+      <button onclick="cerrarModalProgramas()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <div id="modalProgramasLista" style="overflow-y:auto; flex:1; padding-right:4px;"></div>
+  </div>
+</div>
+
+<div id="modalBloqueos" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #1a3a7a; border-radius:12px; padding:28px; width:90vw; max-width:360px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1rem;">🔒 Reporte de Bloqueos</h3>
+      <button onclick="cerrarModalBloqueos()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <label style="color:#c47a8a; font-size:0.85rem;">Fecha del reporte</label>
+      <input type="text" id="bloqueosFecha" placeholder="DD/MM/YYYY"
+        style="background:#000; border:1px solid #7a1a35; border-radius:6px; padding:8px 12px; color:#fff; font-size:0.9rem; width:100%;">
+    </div>
+    <p id="bloqueosMsg" style="color:#f9a8b8; font-size:0.82rem; min-height:16px;"></p>
+    <button onclick="descargarReporteBloqueos()"
+      style="background:#1a3a7a; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+      ⬇ Descargar Excel
+    </button>
+  </div>
+</div>
+
+
+<div id="modalR27" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a5c1a; border-radius:12px; padding:28px; width:90vw; max-width:420px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1rem;">🏦 Generar R27 A-2701</h3>
+      <button onclick="cerrarModalR27()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <label style="color:#ffd54f; font-size:0.85rem;">Periodo (AAAAMM)</label>
+      <input type="text" id="r27Periodo" placeholder="Ej. 202603" maxlength="6"
+        style="background:#000; border:1px solid #7a5c1a; border-radius:6px; padding:8px 12px; color:#fff; font-size:0.9rem; width:100%; box-sizing:border-box;">
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <label style="color:#ffd54f; font-size:0.85rem;">Excel de enriquecimiento <span style="color:#888; font-size:0.78rem;">(opcional — columnas: FOLIO, RFC, CURP)</span></label>
+      <label style="display:flex; align-items:center; gap:10px; cursor:pointer; background:#1a1a1a; border:1px dashed #7a5c1a; border-radius:6px; padding:10px 14px;">
+        <input type="file" id="r27Archivo" accept=".xlsx,.xls" style="display:none;" onchange="r27ArchivoSeleccionado()">
+        <span style="background:#7a5c1a; color:#fff; border-radius:4px; padding:4px 10px; font-size:0.8rem;">📂 Seleccionar archivo</span>
+        <span id="r27ArchivoNombre" style="color:#aaa; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+      </label>
+    </div>
+    <p id="r27Msg" style="color:#a8f9b8; font-size:0.82rem; min-height:16px; word-break:break-word;"></p>
+    <button onclick="descargarReporteR27()"
+      style="background:#7a5c1a; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+      ⬇ Generar y Descargar R27
+    </button>
+  </div>
+</div>
+
+
+
+<div id="modalDCI" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #1a5c38; border-radius:12px; padding:28px; width:90vw; max-width:360px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1rem;">📋 Reporte DCI</h3>
+      <button onclick="cerrarModalDCI()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <label style="color:#7ac47a; font-size:0.85rem;">Fecha del reporte</label>
+      <input type="text" id="dciFecha" placeholder="DD/MM/YYYY"
+        style="background:#000; border:1px solid #1a5c38; border-radius:6px; padding:8px 12px; color:#fff; font-size:0.9rem; width:100%;">
+    </div>
+    <p id="dciMsg" style="color:#a8f9b8; font-size:0.82rem; min-height:16px;"></p>
+    <button onclick="descargarReporteDCI()"
+      style="background:#1a5c38; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+      ⬇ Descargar Excel
+    </button>
+  </div>
+</div>
+
+
+
+<div id="modalConcentrado" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #4a1a7a; border-radius:12px; padding:28px; width:90vw; max-width:400px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1rem;">📊 Concentrado Actual</h3>
+      <button onclick="cerrarModalConcentrado()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <label style="color:#c47a8a; font-size:0.85rem;">Fecha del concentrado</label>
+      <input type="text" id="concentradoFecha" placeholder="DD/MM/YYYY"
+        style="background:#000; border:1px solid #4a1a7a; border-radius:6px; padding:8px 12px; color:#fff; font-size:0.9rem; width:100%;">
+    </div>
+    <p id="concentradoMsg" style="color:#c47a8a; font-size:0.82rem; min-height:16px;"></p>
+    <button onclick="generarConcentrado()"
+      style="background:#4a1a7a; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+      ⚙️ Revisar y generar
+    </button>
+  </div>
+</div>
+
+<div id="modalConcentradoDuplicado" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.95); z-index:10000; justify-content:center; align-items:center;">
+  <div style="background:#0d0d0d; border:2px solid #f9a8b8; border-radius:12px; padding:24px; width:98vw; max-width:1200px; max-height:90vh; display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:1.5rem;">⚠️</span>
+        <h3 style="color:#f9a8b8; font-size:1rem; margin:0;">Duplicado detectado</h3>
+        <span id="concentradoDupProgreso" style="color:#888; font-size:0.8rem;"></span>
+      </div>
+      <p style="color:#c47a8a; font-size:0.85rem; margin:0;">¿Qué deseas hacer con el registro del día?</p>
+    </div>
+
+    <!-- Tabla comparativa -->
+    <div style="overflow:auto; flex:1; min-height:0;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+        <thead>
+          <tr style="background:#1a1a1a; position:sticky; top:0; z-index:1;">
+            <th style="padding:6px 10px; color:#888; border-bottom:1px solid #333; text-align:left; min-width:160px;">Campo</th>
+            <th style="padding:6px 10px; color:#f9a8b8; border-bottom:1px solid #333; text-align:left; min-width:200px;" id="dupColDia">📋 Registro del día</th>
+            <th style="padding:6px 10px; color:#ffd54f; border-bottom:1px solid #333; text-align:left; min-width:200px;" id="dupColHistorico">🗂 Folio duplicado</th>
+          </tr>
+        </thead>
+        <tbody id="concentradoDupTablaBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Tipo de duplicado -->
+    <p id="concentradoDupTipo" style="color:#f9a8b8; font-size:0.82rem; text-align:center; flex-shrink:0;"></p>
+
+    <!-- Botones -->
+    <div style="display:flex; gap:12px; justify-content:center; flex-shrink:0;">
+      <button id="btnConcentradoEliminar" style="background:#7a1a35; color:#fff; border:none; border-radius:8px; padding:12px 28px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+        🗑️ Eliminar registro del día
+      </button>
+      <button id="btnConcentradoDejar" style="background:#1a3a1a; color:#a5d6a7; border:1px solid #4caf50; border-radius:8px; padding:12px 28px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+        ✅ Dejar en el concentrado
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<div id="modalEliminados" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #7a1a35; border-radius:12px; padding:24px; width:95vw; max-width:1000px; max-height:85vh; display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1rem;">♻️ Registros Eliminados</h3>
+      <button onclick="cerrarModalEliminados()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <input type="text" id="eliminadosBusqueda" placeholder="Buscar por folio..." oninput="filtrarEliminados()"
+      style="padding:8px 12px; border-radius:6px; border:1px solid #7a1a35; background:#000; color:#fff; font-size:0.85rem; width:100%; max-width:300px;">
+    <p id="eliminadosTotal" style="color:#ffccd5; font-size:0.8rem; min-height:16px;"></p>
+    <div style="overflow-y:auto; flex:1;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.8rem;">
+        <thead>
+          <tr style="background:#1a1a1a; position:sticky; top:0;">
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Folio</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Usuario</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Fecha recepción</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Monto</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Eliminado por</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Fecha eliminación</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:left;">Motivo</th>
+            <th style="padding:8px 12px; color:#fff; border-bottom:1px solid #7a1a35; text-align:center;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="eliminadosTablaBody"></tbody>
+      </table>
+    </div>
+    <p id="eliminadosMensaje" style="color:#a5d6a7; font-size:0.82rem; text-align:center; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<div id="modalActualizarExcel" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#111111; border:1px solid #1a3a7a; border-radius:12px; padding:28px; width:90vw; max-width:500px; display:flex; flex-direction:column; gap:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="color:#ffffff; font-size:1rem;">📥 Actualización desde Excel</h3>
+      <button onclick="cerrarModalActualizarExcel()" style="background:#333; color:#fff; border:none; border-radius:6px; padding:6px 14px; cursor:pointer;">✖ Cerrar</button>
+    </div>
+    <div id="actualizarDescripcion" style="background:#0a0a1a; border-radius:8px; padding:10px; font-size:0.82rem; color:#ffccd5;">
+      <p id="actualizarDescTexto">Selecciona una opción para ver las columnas requeridas.</p>
+    </div>
+    <input type="file" id="actualizarArchivoExcel" accept=".xlsx"
+      style="padding:8px; border-radius:6px; border:1px solid #1a3a7a; background:#000; color:#fff; font-size:0.85rem; cursor:pointer;">
+    <div id="actualizarProgreso" style="display:none; flex-direction:column; gap:8px;">
+      <div style="background:#1a1a1a; border-radius:6px; height:10px; overflow:hidden;">
+        <div id="actualizarBarra" style="background:#1a3a7a; height:100%; width:0%; transition:width 0.3s;"></div>
+      </div>
+      <p id="actualizarProgresoTexto" style="color:#ffccd5; font-size:0.82rem; text-align:center;"></p>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button onclick="mostrarDescripcionActualizacion('sin_localidad'); document.getElementById('actualizarModo').value='sin_localidad';"
+        style="background:#1a3a7a; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+        ⚡ Actualizar respuestas y fechas
+      </button>
+      <button onclick="mostrarDescripcionActualizacion('solo_localidad'); document.getElementById('actualizarModo').value='solo_localidad';"
+        style="background:#1a5c38; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+        📍 Actualizar solo Localidad Cajero
+      </button>
+      <input type="hidden" id="actualizarModo" value="">
+      <button onclick="ejecutarActualizacionExcel(document.getElementById('actualizarModo').value)"
+        style="background:#4a1a7a; color:#fff; border:none; border-radius:6px; padding:10px; font-size:0.95rem; font-weight:600; cursor:pointer;">
+        ⬆ Subir Excel y actualizar
+      </button>
+    </div>
+    <p id="actualizarMsg" style="color:#a5d6a7; font-size:0.82rem; text-align:center; min-height:16px;"></p>
+  </div>
+</div>
+
+
+<div id="modalGraficaExpandida">
+  <div id="canvasExpandidoWrap">
+    <h3 id="tituloGraficaExpandida" style="color:#fff; font-size:1rem; margin-bottom:12px; text-align:center;"></h3>
+    <canvas id="canvasExpandido" style="width:100% !important; height:100% !important; flex:1; min-height:0;"></canvas>
+  </div>
+  <button onclick="cerrarGraficaExpandida()" style="background:#7a1a35;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-size:0.95rem;font-weight:600;cursor:pointer;">✕ Cerrar</button>
+</div>
+
+
+<!-- MODAL CONFLICTOS CADENA R27 -->
+<div id="modalConflictosR27" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.88); z-index:10000; justify-content:center; align-items:center;">
+  <div style="background:#1e2a35; border-radius:10px; width:96vw; max-width:1200px; max-height:88vh; display:flex; flex-direction:column; padding:24px; box-sizing:border-box; gap:14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:16px; font-weight:600; color:#ffd54f;">⚠️ Conflictos de cadena de fechas — R27</span>
+      <button onclick="document.getElementById('modalConflictosR27').style.display='none'" style="background:transparent;border:none;color:#90a4ae;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <span id="conflictosR27Resumen" style="color:#ef9a9a; font-size:13px;"></span>
+    <div style="font-size:12px;color:#90a4ae;">El R27 fue descargado. Corrige estas fechas en el histórico antes de enviar a la CNBV.</div>
+    <div id="conflictosR27Contenido" style="overflow:auto; flex:1; border-radius:6px; background:#162028;"></div>
+    <div style="text-align:right;">
+      <button onclick="descargarConflictosR27()" style="background:#00796b; color:#fff; border:none; border-radius:6px; padding:7px 16px; cursor:pointer; font-size:13px;">⬇️ Descargar CSV</button>
+    </div>
+  </div>
+</div>
+<!-- FIN MODAL CONFLICTOS CADENA R27 -->
+
+
+
+<div id="modalValidacionFechas" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.88); z-index:9999; justify-content:center; align-items:center;">
+  <div style="background:#1e2a35; border-radius:10px; width:96vw; max-width:1300px; max-height:88vh; display:flex; flex-direction:column; padding:24px; box-sizing:border-box; gap:14px;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:16px; font-weight:600; color:#eceff1;">🗓 Validación de cadena de fechas</span>
+      <button onclick="document.getElementById('modalValidacionFechas').style.display='none'" style="background:transparent;border:none;color:#90a4ae;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+      <span id="validacionFechasResumen" style="color:#90a4ae; font-size:13px;"></span>
+      <button id="validacionFechasBtnDescargar" onclick="descargarErroresCadenaFechas()" style="display:none; background:#00796b; color:#fff; border:none; border-radius:6px; padding:7px 16px; cursor:pointer; font-size:13px;">⬇️ Descargar CSV</button>
+    </div>
+    <div id="validacionFechasContenido" style="overflow:auto; flex:1; border-radius:6px; background:#162028;"></div>
+  </div>
+</div>
+
+
+
+</body>
+</html>
+
+
+<!--// ==============================-->
+ <!--* Proyecto: Sistema de Captura / TSU.-->
+<!--* Arquitectura y Desarrollo Base (v1.0): J. Jesus Osorio Montufar.-->
+ <!--* Fecha de creación: 2025.-->
+ <!--* Área de Origen: Gerencia de aclaraciones.-->
+<!--// ==============================-->
